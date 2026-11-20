@@ -1,0 +1,52 @@
+{
+ "_why": "Same tick: deposit 3 into L1 (7 -> 10, lit, +30 +100), then the pulse still runs (win is judged only at the end of the tick): S1 is 6.5 m from L1 (outside its zone) and sqrt(4.5^2+0.2^2) = 4.504 m from the pulse centre -> stunned, +5, carried 10-3-3 = 4. Then won: +2*floor(299.983) + 3*50. Score 30+100+5+598+150 = 883.",
+ "ticks": 10,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "deposit",
+   {
+    "lantern_id": "L1",
+    "amount": 3,
+    "deposited": 10
+   }
+  ],
+  [
+   1,
+   "lantern_lit",
+   {
+    "lantern_id": "L1"
+   }
+  ],
+  [
+   1,
+   "pulse",
+   {
+    "stunned_ids": [
+     "S1"
+    ]
+   }
+  ],
+  [
+   1,
+   "game_over",
+   {
+    "result": "won",
+    "reason": "all_lit"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 1,
+  "state": "won",
+  "score": 883
+ }
+}

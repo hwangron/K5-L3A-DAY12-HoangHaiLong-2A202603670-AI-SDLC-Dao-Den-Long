@@ -1,0 +1,43 @@
+{
+ "_why": "Idle dash goes along facing +Z: 14/60 = 0.2333 m/tick for 12 ticks (1..12) = 2.8 m. Mote at 2.6 in range at z >= 1.6 -> 7th tick (1.633). Mote at 3.9 stays 1.1 m away after the dash (proves 2.8 m). Press at tick 51 is inside the 90-tick cooldown (from tick 1) -> no dash. Press at tick 91 dashes again; first step z = 3.033 -> mote 2 picked the same tick (dash in step 3, pickup in step 4).",
+ "ticks": 120,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "dash",
+   {}
+  ],
+  [
+   7,
+   "mote_picked",
+   {
+    "carried": 1
+   }
+  ],
+  [
+   91,
+   "dash",
+   {}
+  ],
+  [
+   91,
+   "mote_picked",
+   {
+    "carried": 2
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 120,
+  "state": "playing",
+  "score": 0
+ }
+}

@@ -1,0 +1,61 @@
+{
+ "_why": "Night 1 default shade schedule; the player stands in a lit lantern so nothing can hit. 2 shades at tick 300, then one every 480 ticks: 780, 1260, 1740, 2220 -> 6 = max, 2700 skipped. Ids S1..S6 in spawn order.",
+ "ticks": 2800,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   300,
+   "shade_spawned",
+   {
+    "id": "S1"
+   }
+  ],
+  [
+   300,
+   "shade_spawned",
+   {
+    "id": "S2"
+   }
+  ],
+  [
+   780,
+   "shade_spawned",
+   {
+    "id": "S3"
+   }
+  ],
+  [
+   1260,
+   "shade_spawned",
+   {
+    "id": "S4"
+   }
+  ],
+  [
+   1740,
+   "shade_spawned",
+   {
+    "id": "S5"
+   }
+  ],
+  [
+   2220,
+   "shade_spawned",
+   {
+    "id": "S6"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 2800,
+  "state": "playing",
+  "score": 0
+ }
+}

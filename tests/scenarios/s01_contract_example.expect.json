@@ -1,6 +1,44 @@
 {
-  "_why": "PRD example. Mote at z=5, pickup_radius 1 -> picked when z>=4 (40 steps x 0.1 m). Player at z=12 at tick 120 (far from L1 at z=25, interact does nothing). Pulse at input tick 200 -> event tick 201, S1 (chasing) is inside 6 m. Score 10 + 20.",
+ "_why": "Contract example on v1.1 numbers. Walk +Z 0.1 m/tick: mote at z=5 in range at z=4 -> tick 40, carried 2+1=3 (pickup scores 0). Shade S1 chases head-on at 4/60 m/tick: before the pulse the gap is 17.05 - k/6 > 1. Pulse (input 80 -> tick 81): shade z = 17.05-80/15 = 11.717, player z = 8.1, 3D distance from feet+0.8 = sqrt(3.617^2+0.2^2) = 3.62 <= 5 -> stunned 81..200, pushed 4 m to 15.717, cost 3 -> carried 0, +5. Player stops at z=12 (tick 120); interact at tick 121 is 13 m from L1 -> nothing. Shade chases again from 201: gap 3.717 - (k-200)/15 <= 1 at k=241 -> hit (flames 2, dropped floor(0/2)=0). Next hit could only be 241+90 = 331 > 300. Score 5.",
+ "ticks": 300,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   40,
+   "mote_picked",
+   {
+    "carried": 3
+   }
+  ],
+  [
+   81,
+   "pulse",
+   {
+    "stunned_ids": [
+     "S1"
+    ]
+   }
+  ],
+  [
+   241,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 2,
+    "dropped": 0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
   "ticks": 300,
-  "events": [[40, "mote_picked", {"carried": 1}], [201, "pulse", {"stunned_ids": ["S1"]}]],
-  "end": {"type": "end", "ticks": 300, "state": "playing", "score": 30}
+  "state": "playing",
+  "score": 5
+ }
 }

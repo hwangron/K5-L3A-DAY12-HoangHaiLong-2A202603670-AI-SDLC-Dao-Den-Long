@@ -1,0 +1,6 @@
+{
+ "_why": "Default night 3 (tiers, wind gust at 1800, drifters) - determinism and v1.1 format only.",
+ "ticks": 2400,
+ "seed": 3,
+ "night": 3
+}

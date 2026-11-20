@@ -1,0 +1,29 @@
+{
+ "_why": "Night 2. Carried 5 >= 5 and D1 10 m <= 15 -> chase at 7/60 m/tick from tick 1. Touch (XZ <= 1.2) when 10 - 7k/60 <= 1.2 -> k = 76 (1.133; k=75 is 1.25). Steals min(3,5) = 3 -> carried 2. Invulnerability and the lit lantern under the player do not stop it. It flees 240 ticks and vanishes; no flame lost.",
+ "ticks": 400,
+ "night": 2,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 2
+   }
+  ],
+  [
+   76,
+   "drifter_steal",
+   {
+    "drifter_id": "D1",
+    "amount": 3,
+    "carried": 2
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 400,
+  "state": "playing",
+  "score": 0
+ }
+}

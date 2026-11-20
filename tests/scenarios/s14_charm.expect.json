@@ -1,0 +1,45 @@
+{
+ "_why": "Night 2. Walk +Z: charm at z=2 in range at z=1.0 -> tick 10, 600 ticks. Then 7.2 m/s = 0.12 m/tick: z = 1 + 0.12(k-10) reaches 2.3 (mote at 3.3) at k = 21 (2.32); at 6 m/s it would be tick 23. Dash at tick 31 (12 ticks, 31..42); the press at 36 is during the dash -> ignored; the press at 44 dashes again although only 13 ticks passed (charm: no cooldown). Ends at z ~ 9.7, still on island A.",
+ "ticks": 120,
+ "night": 2,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 2
+   }
+  ],
+  [
+   10,
+   "charm_picked",
+   {
+    "charm_id": "C1",
+    "charm_ticks": 600
+   }
+  ],
+  [
+   21,
+   "mote_picked",
+   {
+    "carried": 1
+   }
+  ],
+  [
+   31,
+   "dash",
+   {}
+  ],
+  [
+   44,
+   "dash",
+   {}
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 120,
+  "state": "playing",
+  "score": 0
+ }
+}

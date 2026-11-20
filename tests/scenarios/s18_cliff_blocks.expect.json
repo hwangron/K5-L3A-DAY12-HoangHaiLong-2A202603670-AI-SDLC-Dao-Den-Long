@@ -1,0 +1,20 @@
+{
+ "_why": "Night 3. Walking -Z from (18,0,26.05) straight at L2 (18,3,10): tier 1 starts at r = 24 -> z = sqrt(24^2-18^2) = 15.87; the 3 m cliff (> 0.3) stops the player there and sliding along x gives nothing (no x input). At tick 201 the player is still ~5.9 m from L2 (> 2.0) -> the interact does nothing. Without the cliff it would reach (18,10) at tick 161 and light L2.",
+ "ticks": 250,
+ "night": 3,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 3
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 250,
+  "state": "playing",
+  "score": 0
+ }
+}

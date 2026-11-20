@@ -1,0 +1,37 @@
+{
+ "player": {
+  "pos": [
+   0,
+   0,
+   -25
+  ],
+  "carried": 10
+ },
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [],
+ "shades": [],
+ "random_drifters": false,
+ "drifters": [],
+ "charms": [],
+ "lanterns": [
+  {
+   "id": "L4",
+   "pos": [
+    0,
+    0,
+    -25
+   ],
+   "deposited": 5
+  },
+  {
+   "id": "L5",
+   "pos": [
+    0,
+    0,
+    -25
+   ],
+   "deposited": 5
+  }
+ ]
+}

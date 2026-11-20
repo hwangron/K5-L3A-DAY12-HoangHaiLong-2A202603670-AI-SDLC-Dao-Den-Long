@@ -1,0 +1,37 @@
+{
+ "_why": "Pulse centre = feet + 0.8 = (0,0.8,0). S1: sqrt(4.99^2+0.2^2) = 4.994 <= 5 -> stunned. S2: sqrt(5^2+0.2^2) = 5.004 > 5 -> missed (a 2D check would stun it). Cost 3 -> carried 3, +5. S2 chases: 5 - k/15 <= 1 at k = 60 -> hit at 60 (flames 2, dropped floor(3/2) = 1). Press at tick 101 is inside the 180-tick cooldown -> nothing. S1 stays stunned to 120, 8.99 m away. The run stops at 140, before S2 could return after its recoil + invuln (>= 150).",
+ "ticks": 140,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "pulse",
+   {
+    "stunned_ids": [
+     "S1"
+    ]
+   }
+  ],
+  [
+   60,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 2,
+    "dropped": 1
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 140,
+  "state": "playing",
+  "score": 5
+ }
+}

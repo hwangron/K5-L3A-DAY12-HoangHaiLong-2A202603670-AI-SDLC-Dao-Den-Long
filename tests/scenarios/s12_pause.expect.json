@@ -1,0 +1,44 @@
+{
+ "_why": "Pause edge at tick 3 -> paused (sim_tick stays 2). Ticks 3..10 do nothing (8 ticks); the pulse edge at tick 6 is dropped and the still-held button is no new edge later -> no pulse. Pause edge at tick 11 -> resumed, the rest of tick 11 runs as sim tick 3. Outer tick = sim tick + 8. Mote at z=1.5 is in range at z=0.5 = sim tick 5 -> tick 13 (carried 4). 1 s = 60 sim ticks -> dawn at tick 68.",
+ "ticks": 200,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   3,
+   "paused",
+   {}
+  ],
+  [
+   11,
+   "resumed",
+   {}
+  ],
+  [
+   13,
+   "mote_picked",
+   {
+    "carried": 4
+   }
+  ],
+  [
+   68,
+   "game_over",
+   {
+    "result": "lost",
+    "reason": "dawn"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 68,
+  "state": "lost",
+  "score": 0
+ }
+}

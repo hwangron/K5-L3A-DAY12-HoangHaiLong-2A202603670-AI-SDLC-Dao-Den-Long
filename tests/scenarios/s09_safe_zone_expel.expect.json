@@ -1,0 +1,35 @@
+{
+ "_why": "Interact (step 5) and the safe-zone update (step 6) come before the shade touch (step 9). L1 is lit on tick 1 while the shade is 0.5 m away -> pushed out to the 6 m edge over <= 30 ticks, harmless meanwhile, then held at the edge: no player_hit ever. Without the expel rule it would hit on tick 1. Score 10*10 + 100 = 200.",
+ "ticks": 600,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "deposit",
+   {
+    "lantern_id": "L1",
+    "amount": 10,
+    "deposited": 10
+   }
+  ],
+  [
+   1,
+   "lantern_lit",
+   {
+    "lantern_id": "L1"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 600,
+  "state": "playing",
+  "score": 200
+ }
+}

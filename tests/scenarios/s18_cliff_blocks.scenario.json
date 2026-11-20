@@ -1,0 +1,18 @@
+{
+ "player": {
+  "pos": [
+   18,
+   0,
+   26.05
+  ],
+  "carried": 10
+ },
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [],
+ "shades": [],
+ "random_drifters": false,
+ "drifters": [],
+ "charms": [],
+ "wind_enabled": false
+}

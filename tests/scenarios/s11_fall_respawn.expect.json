@@ -1,0 +1,38 @@
+{
+ "_why": "Player starts over the cloud sea already below -10 -> falls on tick 1: -1 flame, loses all 4 motes (lost 4, dropped 0). Waits ticks 1..60, respawns at the start (0,0,0) on tick 61 with invuln 90 (61..150). S1 sits 0.5 m from the start, stunned 0..99, chases from 100 and touches at once, but can only hit when invuln ends -> tick 151.",
+ "ticks": 200,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "player_hit",
+   {
+    "by": "fall",
+    "flames": 2,
+    "dropped": 0,
+    "lost": 4
+   }
+  ],
+  [
+   151,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 1,
+    "dropped": 0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 200,
+  "state": "playing",
+  "score": 0
+ }
+}

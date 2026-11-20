@@ -1,1 +1,6 @@
-{"_why": "Default level (random motes + shades) - checked for determinism only (two runs byte-identical).", "ticks": 3000, "seed": 7}
+{
+ "_why": "Default night 1 (random motes + shades, falling off allowed) - checked for determinism and v1.1 format only (two runs byte-identical).",
+ "ticks": 3000,
+ "seed": 7,
+ "night": 1
+}

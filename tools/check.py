@@ -16,8 +16,22 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCEN = os.path.join(ROOT, "tests", "scenarios")
 PHASE = os.environ.get("PHASE", "phase-1")
-SNAP_KEYS = {"type", "tick", "sim_tick", "state", "time_left_s", "score", "player", "lanterns", "shades", "motes_active"}
-EVENT_NAMES = {"mote_picked", "deposit", "lantern_lit", "pulse", "player_hit", "shade_spawned", "game_over"}
+# Test Contract v1.1 (Ticket-02 part 4)
+SNAP_KEYS = {"type", "tick", "sim_tick", "state", "time_left_s", "score", "player", "lanterns", "shades", "motes_active",
+             "night", "wind", "motes", "drifters", "charms"}
+PLAYER_KEYS = {"pos", "flames", "carried", "vel", "grounded", "invuln", "dash_cd_s", "pulse_cd_s", "charm_s"}
+ITEM_KEYS = {"lanterns": {"id", "pos", "lit", "deposited"}, "shades": {"id", "pos", "state"},
+             "motes": {"id", "pos", "kind", "ttl_s"}, "drifters": {"id", "pos", "state", "stolen"},
+             "charms": {"id", "available", "respawn_s"}}
+STATES = {"snapshot": {"playing", "paused", "won", "lost"}, "shades": {"spawning", "wander", "chase", "recoil", "stunned"},
+          "drifters": {"idle", "chase", "flee"}}
+# event name -> exact data keys
+EVENT_FIELDS = {"mote_picked": {"carried"}, "deposit": {"lantern_id", "amount", "deposited"}, "lantern_lit": {"lantern_id"},
+                "pulse": {"stunned_ids"}, "player_hit": {"by", "flames", "dropped"}, "shade_spawned": {"id"},
+                "game_over": {"result", "reason"}, "dash": set(), "charm_picked": {"charm_id", "charm_ticks"},
+                "drifter_steal": {"drifter_id", "amount", "carried"}, "drifter_drop": {"drifter_id", "amount"},
+                "night_start": {"night"}, "paused": set(), "resumed": set()}
+EVENT_NAMES = set(EVENT_FIELDS)
 
 
 def run_unit():
@@ -28,7 +42,8 @@ def run_unit():
 
 
 def headless(name, exp, out):
-    cmd = [sys.executable, os.path.join(ROOT, "headless.py"), "--seed", str(exp.get("seed", 1)), "--night", "1",
+    cmd = [sys.executable, os.path.join(ROOT, "headless.py"), "--seed", str(exp.get("seed", 1)),
+           "--night", str(exp.get("night", 1)),
            "--ticks", str(exp["ticks"]), "--out", out, "--snapshot-every", "10"]
     for kind in ("scenario", "inputs"):
         p = os.path.join(SCEN, f"{name}.{kind}.json")
@@ -47,21 +62,72 @@ def _show(c):
     return c
 
 
+def _unrounded(v, path, out):
+    """Contract: floats are rounded to 3 decimals."""
+    if isinstance(v, float) and round(v, 3) != v:
+        out.append(f"{path}={v} not rounded to 3 decimals")
+    elif isinstance(v, dict):
+        for k, x in v.items():
+            _unrounded(x, f"{path}.{k}", out)
+    elif isinstance(v, list):
+        for i, x in enumerate(v):
+            _unrounded(x, f"{path}[{i}]", out)
+
+
+def snapshot_errors(i, l):
+    errs = []
+    if not SNAP_KEYS <= set(l):
+        return [f"line {i}: snapshot missing {sorted(SNAP_KEYS - set(l))}"]
+    if l["state"] not in STATES["snapshot"]:
+        errs.append(f"line {i}: bad state {l['state']!r}")
+    if not (isinstance(l["wind"], dict) and set(l["wind"]) == {"active", "dir_deg"}):
+        errs.append(f"line {i}: wind must be {{active, dir_deg}}")
+    p = l["player"]
+    if not (isinstance(p, dict) and PLAYER_KEYS <= set(p)):
+        errs.append(f"line {i}: player missing {sorted(PLAYER_KEYS - set(p or {}))}")
+    for arr, keys in ITEM_KEYS.items():
+        if not isinstance(l[arr], list):
+            errs.append(f"line {i}: {arr} is not a list")
+            continue
+        for j, it in enumerate(l[arr]):
+            if not (isinstance(it, dict) and keys <= set(it)):
+                errs.append(f"line {i}: {arr}[{j}] missing {sorted(keys - set(it or {}))}")
+            elif arr in STATES and it["state"] not in STATES[arr]:
+                errs.append(f"line {i}: {arr}[{j}] bad state {it['state']!r}")
+            elif arr == "motes" and it["kind"] not in ("random", "dropped"):
+                errs.append(f"line {i}: motes[{j}] bad kind {it['kind']!r}")
+    if l["motes_active"] != len(l["motes"]):
+        errs.append(f"line {i}: motes_active != len(motes)")
+    _unrounded(l, f"line {i}", errs)
+    return errs
+
+
 def format_errors(lines):
     errs = []
     if not lines or lines[-1].get("type") != "end":
         errs.append("last line is not 'end'")
     for i, l in enumerate(lines):
         t = l.get("type")
-        if t == "snapshot" and not SNAP_KEYS <= set(l):
-            errs.append(f"line {i}: snapshot missing {SNAP_KEYS - set(l)}")
-        elif t == "event" and l.get("name") not in EVENT_NAMES:
-            errs.append(f"line {i}: unknown event {l.get('name')}")
-        elif t == "end" and i != len(lines) - 1:
-            errs.append(f"line {i}: 'end' is not last")
-        elif t not in ("snapshot", "event", "end"):
+        if t == "snapshot":
+            errs += snapshot_errors(i, l)
+        elif t == "event":
+            name, data = l.get("name"), l.get("data")
+            if name not in EVENT_NAMES:
+                errs.append(f"line {i}: unknown event {name}")
+                continue
+            want = set(EVENT_FIELDS[name])
+            if name == "player_hit" and isinstance(data, dict) and data.get("by") == "fall":
+                want.add("lost")   # v1.1: a fall also reports the motes lost
+            if not (isinstance(data, dict) and set(data) == want):
+                errs.append(f"line {i}: {name} data keys {sorted(data or {})} != {sorted(want)}")
+        elif t == "end":
+            if i != len(lines) - 1:
+                errs.append(f"line {i}: 'end' is not last")
+            if l.get("state") not in ("playing", "won", "lost"):
+                errs.append(f"line {i}: end state {l.get('state')!r}")
+        else:
             errs.append(f"line {i}: bad type {t}")
-    return errs
+    return errs[:20]
 
 
 def main():

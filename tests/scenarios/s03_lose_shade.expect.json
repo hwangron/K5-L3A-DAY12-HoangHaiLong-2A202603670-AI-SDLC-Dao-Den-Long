@@ -1,6 +1,36 @@
 {
-  "_why": "Shade 3 m away moves 3.5/60 m per tick; needs <= 1 m -> after ceil(2/0.058333)=35 steps. Last flame -> lost.",
-  "ticks": 600,
-  "events": [[35, "player_hit", {"by": "shade", "flames": 0, "dropped": 0}], [35, "game_over", {"result": "lost", "reason": "no_flames"}]],
-  "end": {"type": "end", "ticks": 35, "state": "lost", "score": 0}
+ "_why": "Shade 3 m away (<= detect 12 -> chase on tick 1) moves 4/60 m per tick; reaches <= 1.0 m after (3-1)/(4/60) = 30 steps -> hit at tick 30 (dy = 1.0 <= 1.5). Last flame -> lost no_flames.",
+ "ticks": 600,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   30,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 0,
+    "dropped": 0
+   }
+  ],
+  [
+   30,
+   "game_over",
+   {
+    "result": "lost",
+    "reason": "no_flames"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 30,
+  "state": "lost",
+  "score": 0
+ }
 }

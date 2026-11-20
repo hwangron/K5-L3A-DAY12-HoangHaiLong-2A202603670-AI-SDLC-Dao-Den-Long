@@ -1,0 +1,32 @@
+{
+ "player": {
+  "pos": [
+   0,
+   0,
+   0
+  ]
+ },
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [
+  [
+   0,
+   0,
+   3.3
+  ]
+ ],
+ "shades": [],
+ "random_drifters": false,
+ "drifters": [],
+ "charms": [
+  {
+   "id": "C1",
+   "pos": [
+    0,
+    0,
+    2
+   ]
+  }
+ ],
+ "wind_enabled": false
+}

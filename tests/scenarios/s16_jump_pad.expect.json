@@ -1,0 +1,36 @@
+{
+ "_why": "Night 2 pad (20,0,18) launches towards B (70,0,0): dir (50,-18)/53.14, 24 m/s = 0.4 m/tick, vy 14. Euler y_n = (14n - n(n-1)/6)/60 is back to 0 at n = 85 -> 34 m -> lands near (51.99, 0, 6.48) on island B (19 m from its centre). Holding the stick -X during the flight (from input 1, after the launch tick) is ignored. L4 moved to (52.2,0,6.4), 0.23 m from the landing spot (0.18 m if it lands a tick later) -> deposit 10, lit. Score 200.",
+ "ticks": 150,
+ "night": 2,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 2
+   }
+  ],
+  [
+   121,
+   "deposit",
+   {
+    "lantern_id": "L4",
+    "amount": 10,
+    "deposited": 10
+   }
+  ],
+  [
+   121,
+   "lantern_lit",
+   {
+    "lantern_id": "L4"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 150,
+  "state": "playing",
+  "score": 200
+ }
+}

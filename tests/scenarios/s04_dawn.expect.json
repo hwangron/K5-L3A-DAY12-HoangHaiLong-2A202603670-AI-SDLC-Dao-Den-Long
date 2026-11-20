@@ -1,6 +1,27 @@
 {
-  "_why": "2 s of night left = 120 steps, then dawn -> lost.",
-  "ticks": 1000,
-  "events": [[120, "game_over", {"result": "lost", "reason": "dawn"}]],
-  "end": {"type": "end", "ticks": 120, "state": "lost", "score": 0}
+ "_why": "2 s of night left = 120 steps, not every lantern lit -> lost dawn at tick 120.",
+ "ticks": 1000,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   120,
+   "game_over",
+   {
+    "result": "lost",
+    "reason": "dawn"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 120,
+  "state": "lost",
+  "score": 0
+ }
 }
