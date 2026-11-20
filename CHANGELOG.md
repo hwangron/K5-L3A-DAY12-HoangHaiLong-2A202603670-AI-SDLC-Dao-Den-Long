@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.0.0 / phase-4] Contract v1.3
+
+Ticket: [ticket-04](docs/lab/ticket-04.txt). Thiết kế: [phase-4-design](docs/notes/phase-4-design.md). Không đổi luật chơi: đổi phá vỡ chỉ ở công cụ và số phiên bản.
+
+- `contract_version` là `"1.3"`. `game.contract.json` thêm `bench_cmd`, `soak_cmd`, `build_cmd`. Các test cũ chỉ đổi số phiên bản (xem [tests/CHANGES-phase-4.md](tests/CHANGES-phase-4.md)).
+- Chế độ benchmark trong sim: `Game(..., bench=True)` với 200 Bóng Mực và 100 đom đóm, tắt sinh thêm, sát thương, nhặt, hao dầu và kết thúc. Chế độ thường không đổi (có test).
+- Lệnh mới: `python3 bench.py --seed 42 --duration 30 --out bench.json` (đo FPS trên bản web, ghi `bench.json` với `peak_mem_mb: null`), `python3 soak.py --seed 7 --nights 10 --out soak.json` (10 Đêm liên tiếp headless, đo RSS).
+- Bảng xếp hạng cục bộ: top 10, lưu ở `~/.dao-den-long/leaderboard.json` (đổi bằng `DDL_LEADERBOARD`). API `GET/POST /api/leaderboard`. Xuất: `python3 serve.py --export-leaderboard out.json`.
+- Dễ tiếp cận (web, lưu localStorage): đổi phím cho mọi hành động, báo trùng, khôi phục mặc định; phụ đề và chỉ báo hình ảnh; giảm chuyển động; chữ UI tối thiểu 18 px, tùy chọn chữ lớn ×1.25.
+- Đóng gói: `tools/fetch_vendor.py` tải three.js r128 và Pyodide 0.27.2 vào `web/vendor/`. `tools/make_release.py` tạo `dist/dao-den-long-v1.0.0.zip`, chạy offline.
+
 ## [phase-3] Contract v1.2 — Breaking changes
 
 Quyết định chi tiết: [ADR-001](docs/notes/adr-001-lantern-fuel.md). Ticket: [ticket-03](docs/lab/ticket-03.txt).

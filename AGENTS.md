@@ -1,6 +1,6 @@
 # AGENTS.md - Dao Den Long
 
-3D game, 3 nights (Python logic + Three.js web view). Lab spec: `docs/lab/` (current: `ticket-03.txt`, contract v1.2). Phase notes: `docs/notes/`.
+3D game, 3 nights (Python logic + Three.js web view). Lab spec: `docs/lab/` (current: `ticket-04.txt`, contract v1.3). Phase notes: `docs/notes/`.
 
 ## Commands
 - Verify everything (must be green before you stop): `python3 tools/check.py`
@@ -8,11 +8,16 @@
 - Browser proof (needs playwright): `PHASE=phase-N python tools/web_check.py`
 - Headless: `python3 headless.py --seed 1 --night 1|2|3 --ticks 600 --out out.jsonl [--scenario f] [--inputs f]`
 - Play: `python3 serve.py` -> http://127.0.0.1:8000/web/ (`?hq` = antialiasing)
+- Leaderboard export: `python3 serve.py --export-leaderboard out.json` (store: `$DDL_LEADERBOARD`, default `~/.dao-den-long/leaderboard.json`)
+- Bench (needs Chrome/Edge/Chromium; web FPS, writes bench.json): `python3 bench.py --seed 42 --duration 30 --out bench.json`
+- Soak (headless, 10 nights, RSS): `python3 soak.py --seed 7 --nights 10 --out soak.json`
+- Vendor three.js + Pyodide (offline): `python3 tools/fetch_vendor.py`; release zip: `python3 tools/make_release.py`
 - Single-file build (Release/Artifact): `python3 tools/build_web.py`
 
 ## Layout
 - `game/sim.py` - ALL game rules. Pure Python stdlib, no I/O, deterministic (seeded `random.Random`, no time).
 - `game/maps.py` - the 3 nights' geometry (`ground_height`, lanterns, spawn points, pads, schedules). Data only, from ticket Part 2.
+- `game/benchstats.py`, `game/leaderboard.py`, `game/procmem.py` - bench statistics, local leaderboard, RSS (stdlib only). `bench.py`, `soak.py`, `serve.py` are the Phase 4 entry points.
 - `headless.py` - Test Contract CLI. `web/index.html` - renders + reads keys only, runs `game/sim.py` via Pyodide (`web_new/web_step/web_map`).
 - `game.contract.json` - `tuning` must equal `sim.TUNING` (a test enforces it).
 - `tests/test_sim.py` (Phase 1 rules on standard numbers), `tests/test_phase2.py` (new rules). Both are black-box: they call the CLI through `tests/blackbox.py`.

@@ -110,3 +110,45 @@ Cách tiết kiệm:
 | docs | 130,627 (Haiku) | Số đo thật từ harness |
 
 - Subagent Phase 3 chạy trên **Sonnet** (coder, tester) và **Haiku** (docs), không còn chạy trên Opus như Phase 2. Đây là thay đổi chủ đích để giảm chi phí.
+
+## Phase 4
+
+### Cách làm
+1. **Điều phối viên** đọc Ticket-04 và viết [phase-4-design.md](phase-4-design.md) trước: chốt cảnh bench, công thức thống kê, thuật toán soak, tên hợp lệ và thứ tự xếp hạng, và bảng sở hữu file.
+2. **Ba subagent chạy song song**, mỗi agent chỉ sửa file của mình, theo định nghĩa trong `.claude/agents/` (coder và tester dùng Sonnet):
+   - **python**: `game/sim.py` (chỉ thêm chế độ bench), `game/benchstats.py`, `game/leaderboard.py`, `game/procmem.py`, `bench.py`, `soak.py`, `serve.py`, `tools/fetch_vendor.py`, `tools/make_release.py`, `game.contract.json`.
+   - **web**: `web/index.html`, `tools/web_check.py`, `tools/build_web.py`.
+   - **tester**: `tests/**`, `tools/check.py`. Viết test hộp đen từ ticket và thiết kế, không sửa code.
+3. **Quyết định chạy trình duyệt cho bench.** Bench mở Chrome/Edge/Chromium với `--disable-gpu-vsync --disable-frame-rate-limit` và cửa sổ 1280×720, nên `vsync_off: true` và số đo không bị giới hạn ở 60 fps. Phương án `webbrowser.open` (không kiểm soát được vsync và cửa sổ) chỉ là dự phòng, khi đó ghi `vsync_off: false` và README nói rõ. Lý do: ticket yêu cầu tắt vsync nếu engine cho phép, và một bài đo không biết vsync có tắt hay không thì không so sánh được.
+4. **Không có subagent review riêng.** Kiểm tra độc lập duy nhất là `tester`, như Phase 3. Đây là thiếu sót đã biết: ở Phase 1, reviewer độc lập tìm được lỗi (bờ đảo kéo vị trí scenario) mà test chưa bắt. Phase 4 cần một lượt review trước khi tag.
+5. **Docs agent** (Haiku) viết README, CHANGELOG, CREDITS, ghi chú, bằng chứng, retro và release notes, chỉ từ số liệu trong file kết quả.
+
+### Lỗi và quyết định của AI
+- Chưa có lỗi AI mới được ghi nhận trong lượt docs này. Lỗi tìm được khi chạy `check.py` và soak cần thêm vào bảng này khi có.
+- Quyết định kỹ thuật (không phải lỗi): bench trên web dùng trình duyệt có cờ tắt vsync thay vì mở trình duyệt mặc định (xem mục 3 ở trên). Soak đo RSS bằng Python vì trình duyệt không cho đọc RSS từ trang.
+
+### Token và chi phí
+| Agent | Token | Ghi chú |
+|---|---|---|
+| tester | 138,794 | Số đo thật |
+| web | 346,735 | Số đo thật. Lớn nhất Phase 4: `web/index.html` đã khoảng 124 KB và chứa cả bench, trợ năng và bảng xếp hạng (giả thuyết: đọc lại file lớn nhiều lần) |
+| python | 220,727 | Số đo thật |
+| docs (Haiku) | 177,313 | Số đo thật |
+| video (Sonnet) | 197,620 | Số đo thật. Tự quay `docs/demo/demo.mp4` bằng Playwright + ffmpeg |
+| điều phối viên | Chưa ước tính riêng | Xem `/usage` |
+
+- Subagent Phase 4 chạy trên Sonnet (coder, tester) và Haiku (docs), giống Phase 3.
+
+## Tổng hợp token cả 4 phase
+
+| Phase | Subagent (số đo thật) | Agent chính |
+|---|---|---|
+| 1 | 67,687 (1 reviewer) | Không có số riêng |
+| 2 | 838,071 (core 164,554 · test 248,125 · web 176,279 · reviewer 121,803 · docs 127,310) | Khoảng 630,000 (ước tính, đến hết Phase 2) |
+| 3 | 764,580 (coder-sim 158,810 · coder-web 181,019 · tester 294,124 · docs 130,627) | Chưa ước tính. Xem `/usage` |
+| 4 | 1,081,189 (tester 138,794 · web 346,735 · python 220,727 · docs 177,313 · video 197,620) | Chưa ước tính. Xem `/usage` |
+| **Tổng** | **2,751,527** | **Ít nhất 630,000** (chỉ đến Phase 2) |
+
+- Số subagent là số harness báo khi mỗi agent kết thúc. Con số agent chính là ước tính: `/usage` đo theo mức dùng, không đếm đúng từng token.
+- Token không đồng giá: Opus đắt hơn Sonnet và Haiku. Tổng token không cho biết chi phí thật. Muốn so chi phí, cần nhân từng agent với đơn giá model đã dùng.
+- Phase 3 và 4 dùng Sonnet và Haiku, Phase 2 dùng Opus cho subagent. Tổng subagent Phase 3 (764k) thấp hơn Phase 2 (838k), nhưng hai phase có phạm vi khác nhau nên đây không phải phép so sánh chi phí.
