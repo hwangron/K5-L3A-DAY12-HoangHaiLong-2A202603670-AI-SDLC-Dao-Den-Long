@@ -30,3 +30,4 @@
 - When a ticket changes a rule: update the test (comment `# Ticket-NN: ...`), record it in `tests/CHANGES-phase-N.md` and `docs/notes/phase-N.md`; never delete tests silently.
 - Creative extras must not change headless output (visual/sound only, or disabled in headless).
 - Do not edit `docs/lab/` (instructor files).
+- Subagents: use `coder` / `tester` / `reviewer` (Sonnet) and `docs-writer` (Haiku) from `.claude/agents/`, never Opus or `general-purpose`. Hard reasoning (ticket, design, arbitration) stays in the main session.
