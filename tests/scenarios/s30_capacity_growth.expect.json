@@ -1,0 +1,145 @@
+{
+ "_why": "Capacity = 10 + 2 * successful_lights (max 20). Tick 1: pickup runs first but carried 10 = capacity 10, so the 14 motes on the spot stay; then the deposit of 10 lights L1 (first light, +10*5 + 100 = 150): carried 0, successful_lights 1 -> capacity 12. Tick 2: pickups up to 12: mote_picked with carried 1..12, 2 motes left. Snapshot tick 0: capacity 10, carried 10, 14 motes; tick 10: capacity 12, carried 12, 2 motes. Score 150.",
+ "ticks": 60,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "deposit",
+   {
+    "lantern_id": "L1",
+    "amount": 10,
+    "deposited": 10
+   }
+  ],
+  [
+   1,
+   "lantern_lit",
+   {
+    "lantern_id": "L1",
+    "relight": false
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 1
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 2
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 3
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 4
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 5
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 6
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 7
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 8
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 9
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 10
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 11
+   }
+  ],
+  [
+   2,
+   "mote_picked",
+   {
+    "carried": 12
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 60,
+  "state": "playing",
+  "score": 150
+ },
+ "snapshots": [
+  {
+   "tick": 0,
+   "motes_active": 14,
+   "player": {
+    "carried": 10,
+    "capacity": 10
+   }
+  },
+  {
+   "tick": 10,
+   "motes_active": 2,
+   "player": {
+    "carried": 12,
+    "capacity": 12
+   },
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "ever_lit": true,
+     "relit_count": 0
+    }
+   }
+  }
+ ]
+}

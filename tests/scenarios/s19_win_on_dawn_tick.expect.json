@@ -1,5 +1,5 @@
 {
- "_why": "1 s = 60 ticks. On tick 60 time reaches 0 AND the last lantern is lit. Win/lose is judged after the whole tick: alive + all lit -> won, even on the dawn tick. Score 10*10 + 100 + 2*floor(0) + 50*3 = 350.",
+ "_why": "Ticket-03 (was: all lit -> won all_lit, 350). 1 s = 60 ticks; L2..L5 preset lit (fuel 100), L1 lit by deposit on tick 60 = the dawn tick. 5/5 lit >= 3, judged after the whole tick -> won dawn_survived. Score: deposit 10*5 + 100 = 150. Dawn bonus: L1 lit this tick has 6000 units -> 50 + 100 = 150; L2..L5 lost 60 units = 1.0 -> 99 -> 4 * (50 + 99) = 596; flames 3 * 50 = 150. 150 + 150 + 596 + 150 = 1046.",
  "ticks": 100,
  "events": [
   [
@@ -22,7 +22,8 @@
    60,
    "lantern_lit",
    {
-    "lantern_id": "L1"
+    "lantern_id": "L1",
+    "relight": false
    }
   ],
   [
@@ -30,7 +31,7 @@
    "game_over",
    {
     "result": "won",
-    "reason": "all_lit"
+    "reason": "dawn_survived"
    }
   ]
  ],
@@ -38,6 +39,6 @@
   "type": "end",
   "ticks": 60,
   "state": "won",
-  "score": 350
+  "score": 1046
  }
 }

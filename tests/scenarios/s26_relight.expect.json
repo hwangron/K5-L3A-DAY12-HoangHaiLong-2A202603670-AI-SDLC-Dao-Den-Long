@@ -1,0 +1,75 @@
+{
+ "_why": "L1 has been lit before (ever_lit) -> relight costs 5, not 10. Tick 1: deposit min(8, 5) = 5 -> lit, lantern_lit relight true, carried 3. Score 5*5 + 40 = 65. relit_count 1, successful_lights 1 -> capacity 12. Tick 20: 6000 - 19 = 5981 units -> 99.683 -> 99.7. Tick 100: units 6000 - 99 = 5901, missing 99 -> 1 mote: refuel {amount 1, fuel 100.0}, carried 2, +5 -> score 70. Tick 110: 5990 units -> 99.8. A refuel does not change relit_count or capacity.",
+ "ticks": 120,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "deposit",
+   {
+    "lantern_id": "L1",
+    "amount": 5,
+    "deposited": 5
+   }
+  ],
+  [
+   1,
+   "lantern_lit",
+   {
+    "lantern_id": "L1",
+    "relight": true
+   }
+  ],
+  [
+   100,
+   "refuel",
+   {
+    "lantern_id": "L1",
+    "amount": 1,
+    "fuel": 100.0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 120,
+  "state": "playing",
+  "score": 70
+ },
+ "snapshots": [
+  {
+   "tick": 20,
+   "player": {
+    "carried": 3,
+    "capacity": 12
+   },
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 99.7,
+     "ever_lit": true,
+     "relit_count": 1
+    }
+   }
+  },
+  {
+   "tick": 110,
+   "player": {
+    "carried": 2,
+    "capacity": 12
+   },
+   "lanterns": {
+    "L1": {
+     "fuel": 99.8,
+     "relit_count": 1
+    }
+   }
+  }
+ ]
+}

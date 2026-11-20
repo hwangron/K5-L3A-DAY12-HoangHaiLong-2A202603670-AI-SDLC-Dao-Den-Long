@@ -1,0 +1,56 @@
+{
+ "_why": "DESIGN: relies on a scenario shade preset to state drain + target_lantern_id (a draining shade is always > 6 m from the player, so it cannot be pulsed naturally). Pulse centre (4, 0.8, 0): S1 (1,1,0) sqrt(9 + 0.04) = 3.007 <= 5, S2 (7,1,0) same. S1 was draining just before: +15; S2 is a normal wander shade: +5 -> score 20 (ticket: 'tong +5 moi con; tong +15 neu ngay truoc do dang drain'). carried 6 - 3 = 3. Both stunned 120 ticks and pushed 4 m away from the player along X: S1 1 - 4 = -3.0, S2 7 + 4 = 11.0 by tick 15, still there at tick 20; no hit.",
+ "ticks": 100,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "pulse",
+   {
+    "stunned_ids": [
+     "S1",
+     "S2"
+    ]
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 100,
+  "state": "playing",
+  "score": 20
+ },
+ "snapshots": [
+  {
+   "tick": 20,
+   "player": {
+    "carried": 3
+   },
+   "score": 20,
+   "shades": {
+    "S1": {
+     "state": "stunned",
+     "pos": [
+      -3.0,
+      1.0,
+      0.0
+     ]
+    },
+    "S2": {
+     "state": "stunned",
+     "pos": [
+      11.0,
+      1.0,
+      0.0
+     ]
+    }
+   }
+  }
+ ]
+}

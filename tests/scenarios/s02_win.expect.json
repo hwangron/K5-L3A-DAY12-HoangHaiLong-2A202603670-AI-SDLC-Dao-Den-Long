@@ -1,5 +1,5 @@
 {
- "_why": "Night-1 L1 is at (0,0,25), player 2.0 m away (<= interact 2.0). Deposit 10 = cost 10 lights the last lantern -> won at the end of tick 1. Score 10*10 + 100 + 2*floor(299.983) + 50*3 = 100+100+598+150 = 948.",
+ "_why": "Ticket-03 (was: win on tick 1 when the last lantern is lit). L1 at (0,0,25), player 2.0 m away, carried 10: deposit 10 lights the 5th lantern on tick 1 (+10*5 + 100 = 150) but the night does NOT end. 5 s of night = 300 ticks: dawn at tick 300 with 5/5 lit (needs 3) -> won dawn_survived. Dawn bonus: L2..L5 preset fuel 100 lose 300 units = 5.0 -> 95 -> 50 + 95 = 145 each (580); L1 lit on tick 1 has 6000 - 299 = 5701 units = 95.017 -> floor 95 -> 145; 5 * 145 = 725. Flames 3 * 50 = 150. Score 150 + 725 + 150 = 1025. Snapshot tick 20: L1 units 6000 - 19 = 5981 -> 99.683 -> 99.7, capacity 10 + 2 * 1 = 12, carried 0.",
  "ticks": 600,
  "events": [
   [
@@ -22,22 +22,45 @@
    1,
    "lantern_lit",
    {
-    "lantern_id": "L1"
+    "lantern_id": "L1",
+    "relight": false
    }
   ],
   [
-   1,
+   300,
    "game_over",
    {
     "result": "won",
-    "reason": "all_lit"
+    "reason": "dawn_survived"
    }
   ]
  ],
  "end": {
   "type": "end",
-  "ticks": 1,
+  "ticks": 300,
   "state": "won",
-  "score": 948
- }
+  "score": 1025
+ },
+ "snapshots": [
+  {
+   "tick": 20,
+   "state": "playing",
+   "player": {
+    "capacity": 12,
+    "carried": 0
+   },
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 99.7,
+     "ever_lit": true,
+     "relit_count": 0
+    }
+   }
+  },
+  {
+   "tick": 290,
+   "state": "playing"
+  }
+ ]
 }

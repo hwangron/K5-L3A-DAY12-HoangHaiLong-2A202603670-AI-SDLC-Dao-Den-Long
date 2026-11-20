@@ -1,0 +1,64 @@
+{
+ "_why": "3 of 5 lit would win (needs 3), but L1 (fuel 1.0 = 60 units) burns out on tick 60 = the dawn tick (units 0 right after step 2, before the win/lose step). At the last tick only L2, L3 are lit: 2 < 3 -> lost dawn (not no_flames: 3 flames). Events in tick order: lantern_out, then game_over. No dawn bonus when lost: score 0. Tick 50: L1 10 units -> 0.2 lit; tick 60 L2 6000 - 60 = 5940 -> 99.0.",
+ "ticks": 200,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   60,
+   "lantern_out",
+   {
+    "lantern_id": "L1"
+   }
+  ],
+  [
+   60,
+   "game_over",
+   {
+    "result": "lost",
+    "reason": "dawn"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 60,
+  "state": "lost",
+  "score": 0
+ },
+ "snapshots": [
+  {
+   "tick": 50,
+   "state": "playing",
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 0.2
+    }
+   }
+  },
+  {
+   "tick": 60,
+   "state": "lost",
+   "lanterns": {
+    "L1": {
+     "lit": false,
+     "fuel": 0,
+     "ever_lit": true
+    },
+    "L2": {
+     "lit": true,
+     "fuel": 99.0
+    },
+    "L3": {
+     "lit": true
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+{
+ "_why": "Fuel decays 1 per second = 1 unit (1/60 fuel) per tick. L1 fuel 1.0 = 60 units -> out on tick 60 (units 0, 'fuel <= 0', right after step 2): lantern_out, deposited reset to 0, ever_lit stays true. L2 fuel 2.0 = 120 units -> out on tick 120. L3 (fuel 100) just decays: units 6000 - n: tick 50 5950 -> 99.167 -> 99.2; 60 -> 99.0; 120 -> 98.0; 130 5870 -> 97.833 -> 97.8. Tick 50: L1 has 10 units = 0.167 -> 0.2 and is still lit. Tick 110: L2 10 units -> 0.2 lit. Nothing else happens, score 0.",
+ "ticks": 130,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   60,
+   "lantern_out",
+   {
+    "lantern_id": "L1"
+   }
+  ],
+  [
+   120,
+   "lantern_out",
+   {
+    "lantern_id": "L2"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 130,
+  "state": "playing",
+  "score": 0
+ },
+ "snapshots": [
+  {
+   "tick": 50,
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 0.2
+    },
+    "L3": {
+     "lit": true,
+     "fuel": 99.2
+    }
+   }
+  },
+  {
+   "tick": 60,
+   "lanterns": {
+    "L1": {
+     "lit": false,
+     "fuel": 0,
+     "deposited": 0,
+     "ever_lit": true
+    },
+    "L2": {
+     "lit": true,
+     "fuel": 1.0
+    },
+    "L3": {
+     "fuel": 99.0
+    }
+   }
+  },
+  {
+   "tick": 110,
+   "lanterns": {
+    "L2": {
+     "lit": true,
+     "fuel": 0.2
+    }
+   }
+  },
+  {
+   "tick": 120,
+   "lanterns": {
+    "L2": {
+     "lit": false,
+     "fuel": 0,
+     "deposited": 0,
+     "ever_lit": true
+    },
+    "L3": {
+     "fuel": 98.0
+    }
+   }
+  },
+  {
+   "tick": 130,
+   "lanterns": {
+    "L1": {
+     "lit": false
+    },
+    "L3": {
+     "fuel": 97.8
+    }
+   }
+  }
+ ]
+}

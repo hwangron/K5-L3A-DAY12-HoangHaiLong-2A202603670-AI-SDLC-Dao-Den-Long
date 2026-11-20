@@ -1,0 +1,17 @@
+{
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [],
+ "shades": [
+  {
+   "id": "S1",
+   "pos": [
+    15,
+    1,
+    0
+   ],
+   "state": "stunned",
+   "state_ticks_left": 5
+  }
+ ]
+}

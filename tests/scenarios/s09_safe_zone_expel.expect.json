@@ -1,5 +1,5 @@
 {
- "_why": "Interact (step 5) and the safe-zone update (step 6) come before the shade touch (step 9). L1 is lit on tick 1 while the shade is 0.5 m away -> pushed out to the 6 m edge over <= 30 ticks, harmless meanwhile, then held at the edge: no player_hit ever. Without the expel rule it would hit on tick 1. Score 10*10 + 100 = 200.",
+ "_why": "Interact (step 5) and the safe-zone update (step 6) come before the shade touch (step 9). L1 is lit on tick 1 while the shade is 0.5 m away -> pushed out to the 6 m edge over <= 30 ticks, harmless meanwhile, then held at the edge: no player_hit ever (fuel 100 -> 90 by tick 600, always >= 30). Without the expel rule it would hit on tick 1. Ticket-03 score 10*5 + 100 = 150 (was 200).",
  "ticks": 600,
  "events": [
   [
@@ -22,7 +22,8 @@
    1,
    "lantern_lit",
    {
-    "lantern_id": "L1"
+    "lantern_id": "L1",
+    "relight": false
    }
   ]
  ],
@@ -30,6 +31,6 @@
   "type": "end",
   "ticks": 600,
   "state": "playing",
-  "score": 200
+  "score": 150
  }
 }

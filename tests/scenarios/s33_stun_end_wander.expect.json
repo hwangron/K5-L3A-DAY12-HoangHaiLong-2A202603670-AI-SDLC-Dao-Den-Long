@@ -1,0 +1,53 @@
+{
+ "_why": "Ticket-03: when stun ends the shade goes to wander (Ticket-02: chase if within 18 m). Stunned for 5 ticks set at tick 0 -> stunned ticks 0..4, wander from tick 5. S1 is 15 m from the player (> 12 m so no chase): it stays wander (the old rule would give chase at tick 5). Snapshot tick 0 stunned; ticks 10, 20, 30 wander. No events.",
+ "ticks": 30,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 30,
+  "state": "playing",
+  "score": 0
+ },
+ "snapshots": [
+  {
+   "tick": 0,
+   "shades": {
+    "S1": {
+     "state": "stunned"
+    }
+   }
+  },
+  {
+   "tick": 10,
+   "shades": {
+    "S1": {
+     "state": "wander"
+    }
+   }
+  },
+  {
+   "tick": 20,
+   "shades": {
+    "S1": {
+     "state": "wander"
+    }
+   }
+  },
+  {
+   "tick": 30,
+   "shades": {
+    "S1": {
+     "state": "wander"
+    }
+   }
+  }
+ ]
+}

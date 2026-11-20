@@ -1,0 +1,95 @@
+{
+ "_why": "Refuel formula used = min(carried, ceil((100 - fuel)/10)), the interaction runs after the decay of its tick. Tick 1: fuel 25.5 = 1530 units - 1 = 1529 (25.483): missing 74.517 / 10 = 7.45 -> 8; used 8 -> fuel 100.0, carried 2, +40. Tick 60: 59 more decay units: 5941 units, missing 59 units = 0.98 -> ceil(0.098) = 1: used 1 -> 100.0, carried 1. Tick 120: 60 units missing -> 1 mote, carried 0. Tick 180: carried 0 -> used 0 -> no event. Score 8*5 + 5 + 5 = 50. Refuel is not a light: capacity stays 10. Snapshots (not on .x5): tick 30 units 6000-29 = 5971 -> 99.5167 -> 99.5, carried 2; tick 70: refilled on 60 -> 5990 -> 99.8333 -> 99.8, carried 1; tick 130: 5990 -> 99.8, carried 0; tick 200: 6000 - 80 = 5920 -> 98.667 -> 98.7.",
+ "ticks": 200,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "refuel",
+   {
+    "lantern_id": "L1",
+    "amount": 8,
+    "fuel": 100.0
+   }
+  ],
+  [
+   60,
+   "refuel",
+   {
+    "lantern_id": "L1",
+    "amount": 1,
+    "fuel": 100.0
+   }
+  ],
+  [
+   120,
+   "refuel",
+   {
+    "lantern_id": "L1",
+    "amount": 1,
+    "fuel": 100.0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 200,
+  "state": "playing",
+  "score": 50
+ },
+ "snapshots": [
+  {
+   "tick": 30,
+   "player": {
+    "carried": 2,
+    "capacity": 10
+   },
+   "lanterns": {
+    "L1": {
+     "fuel": 99.5,
+     "relit_count": 0
+    }
+   }
+  },
+  {
+   "tick": 70,
+   "player": {
+    "carried": 1
+   },
+   "lanterns": {
+    "L1": {
+     "fuel": 99.8
+    }
+   }
+  },
+  {
+   "tick": 130,
+   "player": {
+    "carried": 0
+   },
+   "lanterns": {
+    "L1": {
+     "fuel": 99.8
+    }
+   }
+  },
+  {
+   "tick": 200,
+   "player": {
+    "carried": 0,
+    "capacity": 10
+   },
+   "lanterns": {
+    "L1": {
+     "fuel": 98.7
+    }
+   }
+  }
+ ]
+}

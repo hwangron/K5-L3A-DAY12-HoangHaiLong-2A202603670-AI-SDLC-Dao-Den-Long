@@ -1,6 +1,6 @@
 """Black-box helpers for the unit tests (not a test module itself).
 
-Everything goes through the headless CLI (Test Contract v1.1): we write the
+Everything goes through the headless CLI (Test Contract v1.1 / v1.2): we write the
 scenario/inputs to temp files, call `headless.main(argv)` in-process (same code
 path as `python headless.py ...`, no interpreter start-up per test) and read the
 JSONL back. No test imports game internals except `game.sim.TUNING`, which the
@@ -38,7 +38,10 @@ DASH_TICKS = 12
 DASH_CD_TICKS = 90
 DASH_STEP = 14.0 / 60   # m per tick while dashing
 SHADE_STEP = 4.0 / 60
-PER_MOTE, PER_LANTERN, PER_STUN, PER_SEC, PER_FLAME = 10, 100, 5, 2, 50
+# Ticket-03: new scoring (+5 per mote deposited/refuelled, +100 first light, +40 relight, +5 per stun,
+# +15 per stun of a draining shade, dawn bonus +50 + floor(fuel) per lit lantern and +50 per flame, no time bonus)
+PER_MOTE, PER_LANTERN, PER_STUN, PER_SEC, PER_FLAME = 5, 100, 5, 0, 50
+PER_RELIGHT, PER_DRAIN_STUN, PER_LIT_DAWN = 40, 15, 50
 
 
 def base(night=1, **kw):
@@ -115,6 +118,10 @@ def snap(lines, tick):
 
 def last_snap(lines):
     return [l for l in lines if l["type"] == "snapshot"][-1]
+
+
+def lantern(s, lid):
+    return next(x for x in s["lanterns"] if x["id"] == lid)
 
 
 def shade(s, sid):

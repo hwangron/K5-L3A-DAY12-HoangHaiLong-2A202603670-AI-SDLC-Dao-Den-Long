@@ -1,0 +1,46 @@
+{
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [],
+ "shades": [
+  {
+   "id": "S1",
+   "pos": [
+    1,
+    1,
+    0
+   ],
+   "state": "drain",
+   "target_lantern_id": "L1"
+  },
+  {
+   "id": "S2",
+   "pos": [
+    7,
+    1,
+    0
+   ]
+  }
+ ],
+ "player": {
+  "pos": [
+   4,
+   0,
+   0
+  ],
+  "carried": 6
+ },
+ "lanterns": [
+  {
+   "id": "L1",
+   "lit": true,
+   "fuel": 20.0,
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "ever_lit": true
+  }
+ ]
+}

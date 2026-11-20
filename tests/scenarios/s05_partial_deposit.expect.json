@@ -1,5 +1,5 @@
 {
- "_why": "Walk +Z 0.1 m/tick: motes picked at z=2,4,6 (ticks 20,40,60), no score for pickup. Stop at z=23 (tick 230), 2.0 m from L1 (0,0,25) -> deposit 3 at tick 231 (3/10, not lit). Score 3*10 = 30.",
+ "_why": "Walk +Z 0.1 m/tick: motes picked at z=2,4,6 (ticks 20,40,60), no score for pickup. Stop at z=23 (tick 230), 2.0 m from L1 (0,0,25) -> deposit 3 at tick 231 (3/10, not lit). Ticket-03: +5 per deposited mote -> score 3*5 = 15 (was 30).",
  "ticks": 300,
  "events": [
   [
@@ -44,6 +44,6 @@
   "type": "end",
   "ticks": 300,
   "state": "playing",
-  "score": 30
+  "score": 15
  }
 }

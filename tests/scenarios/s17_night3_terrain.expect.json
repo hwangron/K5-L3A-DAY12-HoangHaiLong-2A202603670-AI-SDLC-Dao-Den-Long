@@ -1,5 +1,5 @@
 {
- "_why": "Night 3 ramp at 30 deg (u = (0.866, 0.5)). Start at s = 31 on its centre line (31u), walk -u 0.1 m/tick for 110 ticks: up the ramp (0.05 m rise per step <= 0.3) from s=30 (y 0) to s=24 (y 3), then on tier 1 to s = 20 = (17.32, 3, 10). L2 (18,3,10) is 0.68 m away -> deposit 10 at tick 111, lit. L2 sits 3.4 m inside tier 1, so it can only be reached by climbing. Score 200.",
+ "_why": "Night 3 ramp at 30 deg (u = (0.866, 0.5)). Start at s = 31 on its centre line (31u), walk -u 0.1 m/tick for 110 ticks: up the ramp (0.05 m rise per step <= 0.3) from s=30 (y 0) to s=24 (y 3), then on tier 1 to s = 20 = (17.32, 3, 10). L2 (18,3,10) is 0.68 m away -> deposit 10 at tick 111, lit. L2 sits 3.4 m inside tier 1, so it can only be reached by climbing. Ticket-03 score 10*5 + 100 = 150 (was 200); lantern_lit has relight false.",
  "ticks": 150,
  "night": 3,
  "events": [
@@ -23,7 +23,8 @@
    111,
    "lantern_lit",
    {
-    "lantern_id": "L2"
+    "lantern_id": "L2",
+    "relight": false
    }
   ]
  ],
@@ -31,6 +32,6 @@
   "type": "end",
   "ticks": 150,
   "state": "playing",
-  "score": 200
+  "score": 150
  }
 }

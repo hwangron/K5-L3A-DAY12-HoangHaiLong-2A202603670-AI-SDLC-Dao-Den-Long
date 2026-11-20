@@ -1,4 +1,6 @@
-"""Black-box tests for every new Ticket-02 rule (contract v1.1).
+"""Black-box tests for every new Ticket-02 rule (contract v1.1), updated for Ticket-03 (contract v1.2).
+
+Ticket-03 edits carry a `# Ticket-03: ...` comment and are listed in tests/CHANGES-phase-3.md.
 
 Conventions used in the hand calculations (ticket + docs/notes/phase-2-design.md section 2):
 - An input frame at tick k is applied by the step that produces tick k+1 (events carry tick k+1).
@@ -15,7 +17,7 @@ import time
 import unittest
 
 from blackbox import (ROOT, base, cli, dropped, drifter, dxz, ev_ticks, events, game_events, last_snap,
-                      press, run, shade, snap, PER_LANTERN, PER_MOTE, PER_STUN)
+                      press, run, shade, snap, PER_FLAME, PER_LANTERN, PER_MOTE, PER_STUN)
 
 START3 = [0.0, 0.0, -30.0]  # night 3 start: design-doc decision (ticket gives none; tower is at the centre)
 
@@ -29,18 +31,20 @@ class ContractV11(unittest.TestCase):
     STANDARD = {
         "player_speed": 6.0, "carry_capacity": 10, "lantern_cost": 10, "lantern_count_night1": 5,
         "pickup_radius": 1.0, "interact_radius": 2.0, "pulse_cost": 3, "pulse_radius": 5.0,
-        "night1_duration_s": 300, "night2_duration_s": 330, "night3_duration_s": 360,
+        # Ticket-03: night durations 240 / 270 / 300 s (were 300 / 330 / 360)
+        "night1_duration_s": 240, "night2_duration_s": 270, "night3_duration_s": 300,
         "flames": 3, "invuln_s": 1.5, "hit_drop_ratio": 0.5, "pulse_stun_s": 2.0, "pulse_push_m": 4.0,
         "pulse_cooldown_s": 3.0, "safe_radius": 6.0, "shade_speed": 4.0, "shade_hit_radius": 1.0,
         "fall_enabled": True, "dash_speed": 14.0, "dash_duration_s": 0.2, "dash_cooldown_s": 1.5,
-        "score": {"per_mote": 10, "per_lantern": 100, "per_stun": 5, "per_second_left": 2, "per_flame_left": 50},
+        # Ticket-03: the old score table (per_mote 10, per_second_left 2) was replaced; the full v1.2 tuning
+        # (fuel_max ... capacity_max, score keys) is checked in test_phase3.py.
     }
 
     def test_version_tuning_equal_and_standard(self):
         from game.sim import TUNING
         with open(os.path.join(ROOT, "game.contract.json"), encoding="utf-8") as f:
             c = json.load(f)
-        self.assertEqual(c["contract_version"], "1.1")
+        self.assertEqual(c["contract_version"], "1.2")   # Ticket-03: contract v1.2
         self.assertEqual(c["tuning"], TUNING)
         for k, v in self.STANDARD.items():
             self.assertIn(k, c["tuning"], k)
@@ -65,7 +69,7 @@ class ContractV11(unittest.TestCase):
         lan = {1: [(0, 0, 25), (23.8, 0, 7.7), (14.7, 0, -20.2), (-14.7, 0, -20.2), (-23.8, 0, 7.7)],
                2: [(0, 0, 20), (17, 0, -10), (-17, 0, -10), (70, 0, 20), (87, 0, -10), (53, 0, -10)],
                3: [(0, 6, 6), (18, 3, 10), (-18, 3, 10), (35, 0, -10), (-35, 0, -10), (20, 0, -35), (-20, 0, -35)]}
-        dur = {1: 300.0, 2: 330.0, 3: 360.0}
+        dur = {1: 240.0, 2: 270.0, 3: 300.0}   # Ticket-03: 240 / 270 / 300 s (were 300 / 330 / 360)
         start = {1: [0.0, 0.0, 0.0], 2: [0.0, 0.0, 0.0], 3: START3}
         charms = {1: [], 2: ["C1"], 3: ["C1", "C2"]}
         for n in (1, 2, 3):
@@ -265,7 +269,9 @@ class SafeZone(unittest.TestCase):
         self.assertEqual(xs, sorted(xs))                # only ever pushed outward
         self.assertEqual(shade(snap(L, 31), "S1")["pos"], [6.0, 1.0, 0.0])
         self.assertEqual(shade(snap(L, 600), "S1")["pos"], [6.0, 1.0, 0.0])
+        # Ticket-03: +5 per mote now (the PER_MOTE constant changed): 10 * 5 + 100 = 150 (was 200)
         self.assertEqual(L[-1]["score"], 10 * PER_MOTE + PER_LANTERN)
+        self.assertEqual(10 * PER_MOTE + PER_LANTERN, 150)
 
 
 # --------------------------------------------------------------------------- pulse
@@ -303,6 +309,8 @@ class PulseV11(unittest.TestCase):
         self.assertEqual(x(15), 7.0)
         self.assertEqual(x(120), 7.0)
         self.assertEqual(shade(snap(L, 120), "S1")["state"], "stunned")
+        # Ticket-03: stun end -> wander; S1 is 7 m <= 12 m from the player so the wander->chase check fires in the
+        # same tick: still "chase" at 121 and it moves at once.
         self.assertEqual(shade(snap(L, 121), "S1")["state"], "chase")
         self.assertEqual(x(121), r3(7 - 1 / 15))
         self.assertEqual(snap(L, 1)["score"], PER_STUN)
@@ -552,31 +560,54 @@ class Fall(unittest.TestCase):
 class WinLose(unittest.TestCase):
     LIT = [{"id": f"L{i}", "lit": True} for i in range(2, 6)]
 
+    # Ticket-03: win only at dawn with >= ceil(0.6 * N) lit lanterns; all_lit and the early win are gone.
+    # The three Ticket-02 tests below were rewritten around the dawn tick (see tests/CHANGES-phase-3.md).
+
     def test_win_on_the_dawn_tick(self):
-        # 1 s = 60 ticks; light the last lantern on tick 60 -> won, 0 s left: 100 + 100 + 0 + 3*50 = 350
+        # Ticket-03: was "light the last lantern on tick 60 -> won all_lit (350)". Now: L2..L5 preset lit (fuel 100),
+        # 1 s = 60 ticks, L1 lit by deposit on tick 60 (the dawn tick) -> won dawn_survived, judged after the tick.
+        # Score: deposit 10*5 + first light 100 = 150. Dawn: L1 lit this tick has units 6000 -> 50 + 100 = 150;
+        # L2..L5 lost 60 units = exactly 1.0 -> 99 -> 4 * (50 + 99) = 596; 3 flames * 50 = 150. Total 1046.
         sc = base(player={"pos": [0, 0, 24], "carried": 10}, lanterns=self.LIT, time_left_s=1)
         L = run(sc, press(59, "interact"), ticks=100)
-        self.assertEqual(events(L, "game_over")[0]["data"], {"result": "won", "reason": "all_lit"})
-        self.assertEqual(L[-1], {"type": "end", "ticks": 60, "state": "won", "score": 350})
+        self.assertEqual(events(L, "game_over")[0]["data"], {"result": "won", "reason": "dawn_survived"})
+        self.assertEqual(L[-1], {"type": "end", "ticks": 60, "state": "won", "score": 1046})
 
-    def test_no_flames_beats_win(self):
-        # last flame lost by falling on the same tick the last lantern (placed at the fall spot) is lit
-        sc = base(player={"pos": [50, -10.5, 0], "carried": 10, "flames": 1},
-                  lanterns=[{"id": "L1", "pos": [50, 0, 0]}] + self.LIT)
-        L = run(sc, press(0, "interact"), ticks=10)
-        self.assertEqual([e["data"] for e in events(L, "game_over")], [{"result": "lost", "reason": "no_flames"}])
-        self.assertEqual(L[-1]["state"], "lost")
+    def test_no_flames_beats_dawn(self):
+        # Ticket-03: was test_no_flames_beats_win (fall + last lantern). Now the last flame is lost on the dawn tick.
+        # 3 of 5 lanterns are lit (enough to win) and 1 s = 60 ticks of night left. A shade chasing from 5 m at
+        # 4/60 m per tick touches (<= 1.0 m) after 15 * (5 - 1) = 60 ticks -> hit on tick 60 with the last flame
+        # -> lost no_flames (not won dawn_survived), score 0.
+        sc = base(player={"pos": [0, 0, 0], "flames": 1}, shades=[{"id": "S1", "pos": [5, 1, 0], "state": "chase"}],
+                  lanterns=self.LIT[:3], time_left_s=1)
+        L = run(sc, ticks=100)
+        self.assertEqual([(e["tick"], e["name"], e["data"]) for e in game_events(L)],
+                         [(60, "player_hit", {"by": "shade", "flames": 0, "dropped": 0}),
+                          (60, "game_over", {"result": "lost", "reason": "no_flames"})])
+        self.assertEqual(L[-1], {"type": "end", "ticks": 60, "state": "lost", "score": 0})
+        # control: same night but invulnerable until tick 100 -> no hit, 3 lit >= 3 -> won at dawn:
+        # 3 lit * (50 + 99) + 1 flame (the player starts with flames: 1) * 50 = 497
+        sc["player"]["invuln_ticks"] = 100
+        L = run(sc, ticks=100)
+        self.assertEqual(events(L, "game_over")[0]["data"], {"result": "won", "reason": "dawn_survived"})
+        self.assertEqual(L[-1]["score"], 3 * (50 + 99) + 1 * PER_FLAME)
+        self.assertEqual(3 * (50 + 99) + 1 * PER_FLAME, 497)
 
-    def test_rest_of_tick_runs_after_last_lantern(self):
-        # win is judged at the end of the tick, so the pulse of the same tick still happens.
-        # L1 (0,0,-2) has 7, deposit 3 -> lit; S1 (0,1,4.5) is 6.5 m from L1 (outside the zone) and
-        # sqrt(4.5^2+0.2^2) = 4.504 m from the pulse centre -> stunned.
-        # score 30 + 100 + 5 + floor(299.983)*2 + 3*50 = 883
-        sc = base(player={"pos": [0, 0, 0], "carried": 10}, shades=[{"id": "S1", "pos": [0, 1, 4.5]}],
-                  lanterns=[{"id": "L1", "pos": [0, 0, -2], "deposited": 7}] + self.LIT)
-        L = run(sc, [{"tick": 0, "interact": True, "pulse": True}], ticks=10)
+    def test_rest_of_tick_runs_before_dawn_verdict(self):
+        # Ticket-03: was test_rest_of_tick_runs_after_last_lantern (all_lit win at tick 1). Win/lose is still judged
+        # at the end of the tick, but now at the dawn tick: tick 60 has deposit 3 (7 -> 10, lit), then pulse, then the
+        # verdict. S1 stunned at (0,1,4.5) is 6.5 m from L1 (outside its 6 m zone) and sqrt(4.5^2 + 0.2^2) = 4.504 m
+        # from the pulse centre -> stunned again, +5. carried 10 - 3 - 3 = 4.
+        # Score: deposit 3*5 + 100 = 115; pulse 5; dawn: L1 (fresh, 100) 150 + L2..L5 4*(50 + 99) = 596; flames 150.
+        # 115 + 5 + 150 + 596 + 150 = 1016
+        sc = base(player={"pos": [0, 0, 0], "carried": 10},
+                  shades=[{"id": "S1", "pos": [0, 1, 4.5], "state": "stunned", "state_ticks_left": 100}],
+                  lanterns=[{"id": "L1", "pos": [0, 0, -2], "deposited": 7}] + self.LIT, time_left_s=1)
+        L = run(sc, [{"tick": 59, "interact": True, "pulse": True}, {"tick": 60, "interact": False, "pulse": False}],
+                ticks=100)
         self.assertEqual([e["name"] for e in game_events(L)], ["deposit", "lantern_lit", "pulse", "game_over"])
-        self.assertEqual(L[-1], {"type": "end", "ticks": 1, "state": "won", "score": 883})
+        self.assertEqual([e["tick"] for e in game_events(L)], [60, 60, 60, 60])
+        self.assertEqual(L[-1], {"type": "end", "ticks": 60, "state": "won", "score": 1016})
 
 
 # --------------------------------------------------------------------------- pause
@@ -592,7 +623,9 @@ class Pause(unittest.TestCase):
             s = snap(L, t)
             self.assertEqual((s["state"], s["tick"], s["sim_tick"]), ("paused", t, 10))
             self.assertEqual(s["player"]["pos"], [0.0, 0.0, 1.0])
-            self.assertEqual(s["time_left_s"], r3((18000 - 10) / 60))
+            # Ticket-03: night 1 is 240 s = 14400 ticks (was 18000); sim_tick 10 -> (14400 - 10) / 60 = 239.833
+            self.assertEqual(s["time_left_s"], r3((14400 - 10) / 60))
+            self.assertEqual(s["time_left_s"], 239.833)
         s = snap(L, 21)
         self.assertEqual((s["state"], s["sim_tick"], s["player"]["pos"]), ("playing", 11, [0.0, 0.0, 1.1]))
         self.assertEqual(snap(L, 25)["sim_tick"], 15)
@@ -845,11 +878,15 @@ class Night3Terrain(unittest.TestCase):
 # --------------------------------------------------------------------------- performance
 class Performance(unittest.TestCase):
     def test_full_night3_under_30s(self):
-        # 360 s night = 21600 ticks. Player stays in a lit lantern at the start so the night lasts to dawn.
+        # Ticket-03: night 3 is now 300 s = 18000 ticks (was 21600) and a lit lantern only protects while its fuel is
+        # >= 30 (it burns out at tick 6000), so "stand in a lit lantern" no longer keeps the player alive to dawn.
+        # Instead the player is invulnerable for 18000 ticks (counter set at tick 0 -> active 0..17999) and nobody can
+        # win: no lantern lit -> lost dawn at tick 18000. Wind off so the player stays on the island (a fall ignores
+        # invulnerability). Everything else (motes, shades, drifters) stays on.
         tmp = tempfile.mkdtemp()
         scp = os.path.join(tmp, "s.json")
         with open(scp, "w", encoding="utf-8") as f:
-            json.dump({"lanterns": [{"id": "L1", "pos": START3, "lit": True}], "wind_enabled": False}, f)
+            json.dump({"player": {"pos": START3, "invuln_ticks": 18000}, "wind_enabled": False}, f)
         out = os.path.join(tmp, "o.jsonl")
         t0 = time.perf_counter()
         r = cli("--seed", "5", "--night", "3", "--ticks", "21600", "--out", out, "--scenario", scp)
@@ -858,7 +895,7 @@ class Performance(unittest.TestCase):
         self.assertLess(dt, 30.0)
         with open(out, encoding="utf-8") as f:
             last = json.loads(f.read().splitlines()[-1])
-        self.assertEqual(last, {"type": "end", "ticks": 21600, "state": "lost", "score": 0})
+        self.assertEqual(last, {"type": "end", "ticks": 18000, "state": "lost", "score": 0})
 
 
 class CliV11(unittest.TestCase):

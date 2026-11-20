@@ -1,0 +1,130 @@
+{
+ "_why": "L1 (0,0,25) lit fuel 20 = 1200 units (< 30: weak, no safe zone). S1 (0,1,26.5) is 1.5 m from it and 26.5 m from the player (> 12 m, never chases): the wander shade picks the weak lantern, is within 2 m -> drain on tick 1 and stands still. It drains 5 units per tick from tick 2 (a state change in step 8 takes effect in step 2 of the next tick), plus the lantern's own 1: tick 1 -> 1199 units, then 6 per tick: units(n) = 1199 - 6(n-1). Tick 10: 1145 -> 19.083 -> 19.1; 70: 785 -> 13.083 -> 13.1; 130: 425 -> 7.083 -> 7.1; 200: 5 -> 0.083 -> 0.1 (still lit); tick 201: -1 <= 0 -> lantern_lit false, deposited 0, ever_lit true, lantern_out, and S1 goes back to wander. fuel_drain every 60 ticks of draining (DESIGN: counted from the tick it enters drain, first at 61): tick 61 839 units -> 13.983 -> 14.0; 121: 479 -> 7.983 -> 8.0; 181: 119 -> 1.983 -> 2.0. No hits (the shade stays within ~6 m of L1, >= 19 m from the player).",
+ "ticks": 300,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   61,
+   "fuel_drain",
+   {
+    "lantern_id": "L1",
+    "shade_id": "S1",
+    "fuel": 14.0
+   }
+  ],
+  [
+   121,
+   "fuel_drain",
+   {
+    "lantern_id": "L1",
+    "shade_id": "S1",
+    "fuel": 8.0
+   }
+  ],
+  [
+   181,
+   "fuel_drain",
+   {
+    "lantern_id": "L1",
+    "shade_id": "S1",
+    "fuel": 2.0
+   }
+  ],
+  [
+   201,
+   "lantern_out",
+   {
+    "lantern_id": "L1"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 300,
+  "state": "playing",
+  "score": 0
+ },
+ "snapshots": [
+  {
+   "tick": 10,
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 19.1
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "drain",
+     "pos": [
+      0,
+      1,
+      26.5
+     ]
+    }
+   }
+  },
+  {
+   "tick": 70,
+   "lanterns": {
+    "L1": {
+     "fuel": 13.1
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "drain",
+     "pos": [
+      0,
+      1,
+      26.5
+     ]
+    }
+   }
+  },
+  {
+   "tick": 130,
+   "lanterns": {
+    "L1": {
+     "fuel": 7.1
+    }
+   }
+  },
+  {
+   "tick": 200,
+   "lanterns": {
+    "L1": {
+     "lit": true,
+     "fuel": 0.1
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "drain"
+    }
+   }
+  },
+  {
+   "tick": 210,
+   "lanterns": {
+    "L1": {
+     "lit": false,
+     "fuel": 0,
+     "deposited": 0,
+     "ever_lit": true
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "wander"
+    }
+   }
+  }
+ ]
+}

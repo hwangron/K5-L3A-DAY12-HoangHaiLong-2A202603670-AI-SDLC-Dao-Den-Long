@@ -1,5 +1,5 @@
 {
- "_why": "Tick 1: shade steps to 0.433 m -> hit: flames 2, drops floor(10/2) = 5 onto a 1.5-2.5 m ring (the stationary player never reaches them; they expire at 1+480). Carried 5. Tick 2: L1 1.5 m away needs 10-5 = 5 -> deposit 5, lit (+50 +100). The recoiling shade is inside the new 6 m zone -> expelled, then held 6 m from L1 = >= 4.5 m from the player: no more hits. Score 150.",
+ "_why": "Tick 1: shade steps to 0.433 m -> hit: flames 2, drops floor(10/2) = 5 onto a 1.5-2.5 m ring (the stationary player never reaches them; they expire at 1+480). Carried 5. Tick 2: L1 1.5 m away needs 10-5 = 5 -> deposit 5, lit (first light, relight false). The recoiling shade is inside the new 6 m zone (fuel 100 >= 30) -> expelled, then held 6 m from L1 = >= 4.5 m from the player: no more hits. Ticket-03 score: 5*5 + 100 = 125 (was 5*10 + 100 = 150).",
  "ticks": 600,
  "events": [
   [
@@ -31,7 +31,8 @@
    2,
    "lantern_lit",
    {
-    "lantern_id": "L1"
+    "lantern_id": "L1",
+    "relight": false
    }
   ]
  ],
@@ -39,6 +40,6 @@
   "type": "end",
   "ticks": 600,
   "state": "playing",
-  "score": 150
+  "score": 125
  }
 }

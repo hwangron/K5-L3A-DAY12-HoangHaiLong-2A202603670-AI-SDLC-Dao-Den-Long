@@ -1,5 +1,5 @@
 {
- "_why": "Night 3, wind on by default. Tick 1001: L4 and L5 both 0 m away -> tie -> L4 (smaller id): deposit min(10,5) = 5 -> lit (+50 +100). The gust of ticks 1800..2099 pushes 2 m/s x 5 s = 10 m in a random direction; within 10 m of (0,-25) the ground is flat tier 0 (z < 0, r 15..35), so the player ends 10 m from L5 > 2.0 -> the interact at tick 2101 does nothing, whatever the direction. Score 150.",
+ "_why": "Night 3, wind on by default. Tick 1001: L4 and L5 both 0 m away -> tie -> L4 (smaller id): deposit min(10,5) = 5 -> lit (first light: L4 was never lit). The gust of ticks 1800..2099 pushes 2 m/s x 5 s = 10 m in a random direction; within 10 m of (0,-25) the ground is flat tier 0, so the player ends 10 m from the lantern spot > 2.0 -> the interact at tick 2101 does nothing (neither the lit L4 nor L5 is in reach), whatever the direction. Ticket-03 score 5*5 + 100 = 125 (was 150).",
  "ticks": 2200,
  "night": 3,
  "events": [
@@ -23,7 +23,8 @@
    1001,
    "lantern_lit",
    {
-    "lantern_id": "L4"
+    "lantern_id": "L4",
+    "relight": false
    }
   ]
  ],
@@ -31,6 +32,6 @@
   "type": "end",
   "ticks": 2200,
   "state": "playing",
-  "score": 150
+  "score": 125
  }
 }

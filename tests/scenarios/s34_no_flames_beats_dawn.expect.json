@@ -1,0 +1,36 @@
+{
+ "_why": "3 of 5 lit (enough to win at dawn), 1 s = 60 ticks left, one flame. S1 chases from 5 m at 4/60 m per tick: after k steps the gap is 5 - k/15 <= 1.0 at k = 60 -> player_hit on tick 60 (flames 0, dropped floor(0/2) = 0), the same tick as dawn. Rule: no_flames always wins -> lost no_flames, not won dawn_survived. Score 0 (no dawn bonus).",
+ "ticks": 200,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   60,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 0,
+    "dropped": 0
+   }
+  ],
+  [
+   60,
+   "game_over",
+   {
+    "result": "lost",
+    "reason": "no_flames"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 60,
+  "state": "lost",
+  "score": 0
+ }
+}

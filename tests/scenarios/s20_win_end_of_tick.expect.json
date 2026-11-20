@@ -1,6 +1,6 @@
 {
- "_why": "Same tick: deposit 3 into L1 (7 -> 10, lit, +30 +100), then the pulse still runs (win is judged only at the end of the tick): S1 is 6.5 m from L1 (outside its zone) and sqrt(4.5^2+0.2^2) = 4.504 m from the pulse centre -> stunned, +5, carried 10-3-3 = 4. Then won: +2*floor(299.983) + 3*50. Score 30+100+5+598+150 = 883.",
- "ticks": 10,
+ "_why": "Ticket-03 (was: all_lit win on tick 1). The verdict is still after the whole tick, now the dawn tick (1 s = 60 ticks): on tick 60 deposit 3 into L1 (7 -> 10, first light), then the pulse still runs: S1 (stunned, state_ticks_left 100 so it is still at (0,1,4.5)) is 6.5 m from L1 (outside its 6 m zone) and sqrt(4.5^2 + 0.2^2) = 4.504 m from the pulse centre -> stunned again, +5, carried 10-3-3 = 4. Then 5/5 lit -> won dawn_survived. Score: deposit 3*5 + 100 = 115; pulse 5; dawn: L1 fresh 50 + 100 = 150, L2..L5 4 * (50 + 99) = 596, flames 3 * 50 = 150. 115 + 5 + 150 + 596 + 150 = 1016.",
+ "ticks": 100,
  "events": [
   [
    0,
@@ -10,7 +10,7 @@
    }
   ],
   [
-   1,
+   60,
    "deposit",
    {
     "lantern_id": "L1",
@@ -19,14 +19,15 @@
    }
   ],
   [
-   1,
+   60,
    "lantern_lit",
    {
-    "lantern_id": "L1"
+    "lantern_id": "L1",
+    "relight": false
    }
   ],
   [
-   1,
+   60,
    "pulse",
    {
     "stunned_ids": [
@@ -35,18 +36,18 @@
    }
   ],
   [
-   1,
+   60,
    "game_over",
    {
     "result": "won",
-    "reason": "all_lit"
+    "reason": "dawn_survived"
    }
   ]
  ],
  "end": {
   "type": "end",
-  "ticks": 1,
+  "ticks": 60,
   "state": "won",
-  "score": 883
+  "score": 1016
  }
 }

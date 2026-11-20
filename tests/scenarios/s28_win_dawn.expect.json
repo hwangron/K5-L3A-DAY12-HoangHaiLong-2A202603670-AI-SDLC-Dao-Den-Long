@@ -1,0 +1,48 @@
+{
+ "_why": "Night 1 has 5 lanterns, win needs ceil(0.6 * 5) = 3 lit at the last tick. 3 lit (L1 fuel 100, L2 50, L3 80), 2 s = 120 ticks, nothing else. Dawn on tick 120 -> won dawn_survived. 120 units lost each: L1 5880 -> 98; L2 2880 -> 48; L3 4680 -> 78. Dawn bonus (50 + floor(fuel)) per lit lantern: 148 + 98 + 128 = 374, flames 3 * 50 = 150: score 524. Tick 100: 5900 -> 98.333 -> 98.3; 2900 -> 48.3; 4700 -> 78.3 (no early win: still playing).",
+ "ticks": 400,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   120,
+   "game_over",
+   {
+    "result": "won",
+    "reason": "dawn_survived"
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 120,
+  "state": "won",
+  "score": 524
+ },
+ "snapshots": [
+  {
+   "tick": 100,
+   "state": "playing",
+   "lanterns": {
+    "L1": {
+     "fuel": 98.3
+    },
+    "L2": {
+     "fuel": 48.3
+    },
+    "L3": {
+     "fuel": 78.3
+    }
+   }
+  },
+  {
+   "tick": 120,
+   "state": "won"
+  }
+ ]
+}

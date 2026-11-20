@@ -1,9 +1,10 @@
-"""Phase-1 unit + contract tests, updated to Ticket-02 standard numbers (contract v1.1).
+"""Phase-1 unit + contract tests, updated to Ticket-02 standard numbers and Ticket-03 rules (contract v1.2).
 
 Run: python -m unittest discover -s tests
 Every test whose expected value changed because Ticket-02 replaced a rule carries a
-`# Ticket-02: ...` comment; the full list is in tests/CHANGES-phase-2.md.
-New Phase-2 rules are tested in tests/test_phase2.py.
+`# Ticket-02: ...` comment; Ticket-03 changes carry `# Ticket-03: ...`.
+Full lists: tests/CHANGES-phase-2.md and tests/CHANGES-phase-3.md.
+New Phase-2 rules are tested in tests/test_phase2.py, Phase-3 rules in tests/test_phase3.py.
 """
 import json
 import math
@@ -28,7 +29,7 @@ class ContractFile(unittest.TestCase):
         from game.sim import TUNING
         with open(os.path.join(ROOT, "game.contract.json"), encoding="utf-8") as f:
             c = json.load(f)
-        self.assertEqual(c["contract_version"], "1.1")  # Ticket-02: contract v1.1
+        self.assertEqual(c["contract_version"], "1.2")  # Ticket-03: contract v1.2 (was 1.1 in Ticket-02)
         for k in ("team", "build_cmd", "run_cmd", "headless_cmd"):
             self.assertTrue(isinstance(c[k], str) and c[k])
         self.assertEqual(c["tuning"], TUNING)
@@ -111,8 +112,9 @@ class Lanterns(unittest.TestCase):
 
     def test_deposit_partial_then_lit(self):
         # Ticket-02: lantern cost 10, interact radius 2.0, +10 per deposited mote.
-        # run 1: carry 3 -> deposit 3 (3/10, not lit), score 3*10 = 30.
-        # run 2: carry 9, already 3 -> deposit min(9, 7) = 7 -> lit, 2 left, score 7*10 + 100 = 170.
+        # Ticket-03: +5 per mote now, lantern_lit has relight:false (first light).
+        # run 1: carry 3 -> deposit 3 (3/10, not lit), score 3*5 = 15.
+        # run 2: carry 9, already 3 -> deposit min(9, 7) = 7 -> lit, 2 left, score 7*5 + 100 = 135.
         sc = scen(player={"pos": [0, 0, 0], "carried": 3},
                   lanterns=[{"id": "L1", "pos": [0, 0, 2.0]}],
                   motes=[[5, 0, 5]])
@@ -121,13 +123,16 @@ class Lanterns(unittest.TestCase):
         self.assertEqual(events(L, "deposit")[0]["data"], {"lantern_id": "L1", "amount": 3, "deposited": 3})
         self.assertFalse(events(L, "lantern_lit"))
         self.assertEqual(L[-1]["score"], 3 * PER_MOTE)
+        self.assertEqual(3 * PER_MOTE, 15)                  # Ticket-03: 3 x 5 (was 30)
         sc["player"]["carried"] = 9
         sc["lanterns"][0]["deposited"] = 3
         L = run(sc, fr, ticks=3)
         self.assertEqual(events(L, "deposit")[0]["data"], {"lantern_id": "L1", "amount": 7, "deposited": 10})
-        self.assertEqual(events(L, "lantern_lit")[0]["data"], {"lantern_id": "L1"})
+        # Ticket-03: lantern_lit now carries relight (false for a first light)
+        self.assertEqual(events(L, "lantern_lit")[0]["data"], {"lantern_id": "L1", "relight": False})
         self.assertEqual(snap(L, 3)["player"]["carried"], 2)
         self.assertEqual(L[-1]["score"], 7 * PER_MOTE + PER_LANTERN)
+        self.assertEqual(7 * PER_MOTE + PER_LANTERN, 135)   # Ticket-03: 35 + 100
 
     def test_out_of_range_no_deposit(self):
         # Ticket-02: interact radius 2.0; night_start is now always emitted at tick 0, so look at game events only
@@ -140,17 +145,31 @@ class Lanterns(unittest.TestCase):
         L = run(sc, {"frames": [{"tick": 0, "interact": True}]}, ticks=10)
         self.assertEqual(len(events(L, "deposit")), 1)
 
-    def test_win_all_lit_with_bonus(self):
-        # Ticket-02: carry 10 = cost 10. Score 10*10 + 100 + floor(99.983)*2 + 2 flames*50 = 498
+    def test_all_lit_does_not_end_the_night(self):
+        # Ticket-03: REPLACES test_win_all_lit_with_bonus. "Thang ngay khi tat ca den sang" is gone: lighting the
+        # 5th lantern (carried 10 = cost 10 at tick 1) must not end the night; no game_over, state stays playing.
+        # Score only 10*5 + 100 = 150 (no time bonus, no dawn bonus before dawn).
         lits = [{"id": f"L{i}", "lit": True} for i in range(2, 6)]
         sc = scen(player={"pos": [0, 0, 0], "carried": 10, "flames": 2},
                   lanterns=[{"id": "L1", "pos": [0, 0, 1]}] + lits, time_left_s=100)
         L = run(sc, {"frames": self.press(0, "interact")}, ticks=100)
+        self.assertEqual([e["name"] for e in game_events(L)], ["deposit", "lantern_lit"])
+        self.assertEqual(L[-1], {"type": "end", "ticks": 100, "state": "playing", "score": 10 * PER_MOTE + PER_LANTERN})
+        self.assertEqual(10 * PER_MOTE + PER_LANTERN, 150)
+
+    def test_win_at_dawn_with_bonus(self):
+        # Ticket-03: REPLACES the all-lit win. 5 lit (L1 by deposit at tick 1, L2..L5 preset fuel 100), 1 s of night
+        # left = dawn at tick 60, 2 flames left. Lit at tick 1 -> fuel 100 - 59/60 -> units 6000-59 = 5941 -> floor 99;
+        # preset lanterns 100 - 60/60 = 99 -> floor 99. Score 10*5 + 100 (light) + 5*(50 + 99) + 2*50 = 995.
+        lits = [{"id": f"L{i}", "lit": True} for i in range(2, 6)]
+        sc = scen(player={"pos": [0, 0, 0], "carried": 10, "flames": 2},
+                  lanterns=[{"id": "L1", "pos": [0, 0, 1]}] + lits, time_left_s=1)
+        L = run(sc, {"frames": self.press(0, "interact")}, ticks=100)
         go = events(L, "game_over")[0]
-        self.assertEqual((go["tick"], go["data"]), (1, {"result": "won", "reason": "all_lit"}))
-        expect = 10 * PER_MOTE + PER_LANTERN + 99 * PER_SEC + 2 * PER_FLAME
-        self.assertEqual(expect, 498)
-        self.assertEqual(L[-1], {"type": "end", "ticks": 1, "state": "won", "score": expect})
+        self.assertEqual((go["tick"], go["data"]), (60, {"result": "won", "reason": "dawn_survived"}))
+        expect = 10 * PER_MOTE + PER_LANTERN + 5 * (50 + 99) + 2 * PER_FLAME
+        self.assertEqual(expect, 995)
+        self.assertEqual(L[-1], {"type": "end", "ticks": 60, "state": "won", "score": expect})
 
     def test_prelit_lantern_gives_no_score(self):
         # Ticket-02: only night_start may appear (it is a v1.1 event at tick 0)

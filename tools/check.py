@@ -1,5 +1,8 @@
 """One-command verification: unit tests + headless scenarios + determinism + output format.
 
+Scenario expectations (tests/scenarios/NAME.expect.json): `events` (exact list), `end` (exact last line) and, new in
+Phase 3, `snapshots` (partial checks of the snapshots written every 10 ticks, matched by lantern/shade id).
+
 python3 tools/check.py           # verify only (used by the Claude Stop hook and CI)
 python3 tools/check.py --save    # also write proof to docs/proof/<PHASE>/ (PHASE env, default phase-1)
 Exit 0 = all green, 2 = something failed (exit 2 also makes the Stop hook block the agent).
@@ -16,22 +19,31 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCEN = os.path.join(ROOT, "tests", "scenarios")
 PHASE = os.environ.get("PHASE", "phase-1")
-# Test Contract v1.1 (Ticket-02 part 4)
+# Test Contract v1.2 (Ticket-02 part 4 + Ticket-03 part 7)
 SNAP_KEYS = {"type", "tick", "sim_tick", "state", "time_left_s", "score", "player", "lanterns", "shades", "motes_active",
              "night", "wind", "motes", "drifters", "charms"}
-PLAYER_KEYS = {"pos", "flames", "carried", "vel", "grounded", "invuln", "dash_cd_s", "pulse_cd_s", "charm_s"}
-ITEM_KEYS = {"lanterns": {"id", "pos", "lit", "deposited"}, "shades": {"id", "pos", "state"},
+# Ticket-03: player.capacity; lantern fuel / ever_lit / relit_count
+PLAYER_KEYS = {"pos", "flames", "carried", "vel", "grounded", "invuln", "dash_cd_s", "pulse_cd_s", "charm_s", "capacity"}
+ITEM_KEYS = {"lanterns": {"id", "pos", "lit", "deposited", "fuel", "ever_lit", "relit_count"},
+             "shades": {"id", "pos", "state"},
              "motes": {"id", "pos", "kind", "ttl_s"}, "drifters": {"id", "pos", "state", "stolen"},
              "charms": {"id", "available", "respawn_s"}}
-STATES = {"snapshot": {"playing", "paused", "won", "lost"}, "shades": {"spawning", "wander", "chase", "recoil", "stunned"},
+# Ticket-03: new shade state "drain"
+STATES = {"snapshot": {"playing", "paused", "won", "lost"},
+          "shades": {"spawning", "wander", "chase", "recoil", "stunned", "drain"},
           "drifters": {"idle", "chase", "flee"}}
 # event name -> exact data keys
-EVENT_FIELDS = {"mote_picked": {"carried"}, "deposit": {"lantern_id", "amount", "deposited"}, "lantern_lit": {"lantern_id"},
+# Ticket-03: lantern_lit.relight, new events refuel / lantern_out / fuel_drain
+EVENT_FIELDS = {"mote_picked": {"carried"}, "deposit": {"lantern_id", "amount", "deposited"},
+                "lantern_lit": {"lantern_id", "relight"}, "refuel": {"lantern_id", "amount", "fuel"},
+                "lantern_out": {"lantern_id"}, "fuel_drain": {"lantern_id", "shade_id", "fuel"},
                 "pulse": {"stunned_ids"}, "player_hit": {"by", "flames", "dropped"}, "shade_spawned": {"id"},
                 "game_over": {"result", "reason"}, "dash": set(), "charm_picked": {"charm_id", "charm_ticks"},
                 "drifter_steal": {"drifter_id", "amount", "carried"}, "drifter_drop": {"drifter_id", "amount"},
                 "night_start": {"night"}, "paused": set(), "resumed": set()}
 EVENT_NAMES = set(EVENT_FIELDS)
+# Ticket-03: win only at dawn (dawn_survived); lose by dawn or no_flames; all_lit is gone
+GAME_OVER = {("won", "dawn_survived"), ("lost", "dawn"), ("lost", "no_flames")}
 
 
 def run_unit():
@@ -74,6 +86,28 @@ def _unrounded(v, path, out):
             _unrounded(x, f"{path}[{i}]", out)
 
 
+def _one_decimal(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and round(v, 1) == v
+
+
+def lantern_errors(i, j, it):
+    """Ticket-03: fuel is a real with 1 decimal in [0, 100] (0 when unlit); lit implies ever_lit."""
+    errs = []
+    f = it["fuel"]
+    if not _one_decimal(f) or not 0 <= f <= 100:
+        errs.append(f"line {i}: lanterns[{j}].fuel={f!r} must be a number in [0, 100] with at most 1 decimal")
+    elif not it["lit"] and f != 0:
+        errs.append(f"line {i}: lanterns[{j}] is unlit but fuel={f}")
+    if not isinstance(it["lit"], bool) or not isinstance(it["ever_lit"], bool):
+        errs.append(f"line {i}: lanterns[{j}] lit/ever_lit must be booleans")
+    elif it["lit"] and not it["ever_lit"]:
+        errs.append(f"line {i}: lanterns[{j}] is lit but ever_lit is false")
+    rc = it["relit_count"]
+    if not (isinstance(rc, int) and not isinstance(rc, bool) and rc >= 0):
+        errs.append(f"line {i}: lanterns[{j}].relit_count={rc!r} must be an integer >= 0")
+    return errs
+
+
 def snapshot_errors(i, l):
     errs = []
     if not SNAP_KEYS <= set(l):
@@ -96,6 +130,11 @@ def snapshot_errors(i, l):
                 errs.append(f"line {i}: {arr}[{j}] bad state {it['state']!r}")
             elif arr == "motes" and it["kind"] not in ("random", "dropped"):
                 errs.append(f"line {i}: motes[{j}] bad kind {it['kind']!r}")
+            elif arr == "lanterns":
+                errs += lantern_errors(i, j, it)
+    cap = p.get("capacity") if isinstance(p, dict) else None
+    if not (isinstance(cap, int) and not isinstance(cap, bool) and 10 <= cap <= 20 and cap % 2 == 0):
+        errs.append(f"line {i}: player.capacity={cap!r} must be an even integer in [10, 20] (10 + 2 x successful lights)")
     if l["motes_active"] != len(l["motes"]):
         errs.append(f"line {i}: motes_active != len(motes)")
     _unrounded(l, f"line {i}", errs)
@@ -120,6 +159,16 @@ def format_errors(lines):
                 want.add("lost")   # v1.1: a fall also reports the motes lost
             if not (isinstance(data, dict) and set(data) == want):
                 errs.append(f"line {i}: {name} data keys {sorted(data or {})} != {sorted(want)}")
+                continue
+            if name == "lantern_lit" and not isinstance(data["relight"], bool):
+                errs.append(f"line {i}: lantern_lit.relight must be true/false, got {data['relight']!r}")
+            if name in ("refuel", "fuel_drain") and not _one_decimal(data["fuel"]):
+                errs.append(f"line {i}: {name}.fuel={data['fuel']!r} must be a number with at most 1 decimal")
+            if name == "refuel" and not (isinstance(data["amount"], int) and data["amount"] >= 1):
+                errs.append(f"line {i}: refuel.amount must be an integer >= 1 (a lantern that takes nothing is not selected)")
+            if name == "game_over" and (data["result"], data["reason"]) not in GAME_OVER:
+                errs.append(f"line {i}: game_over {data['result']}/{data['reason']} not allowed in v1.2 "
+                            f"(won only as dawn_survived, lost as dawn or no_flames; all_lit is gone)")
         elif t == "end":
             if i != len(lines) - 1:
                 errs.append(f"line {i}: 'end' is not last")
@@ -128,6 +177,43 @@ def format_errors(lines):
         else:
             errs.append(f"line {i}: bad type {t}")
     return errs[:20]
+
+
+def _by_id(v):
+    """Snapshot arrays of items -> {id: item} so an expectation can name lantern "L1" / shade "S1"."""
+    if isinstance(v, list) and all(isinstance(x, dict) and "id" in x for x in v):
+        return {x["id"]: x for x in v}
+    return v
+
+
+def _subset(exp, got, path, out):
+    """Partial match: every key in `exp` must equal the same key in `got` (arrays of items matched by id)."""
+    if isinstance(exp, dict):
+        got = _by_id(got)
+        if not isinstance(got, dict):
+            out.append(f"{path}: expected an object, got {got!r}")
+            return
+        for k, v in exp.items():
+            if k not in got:
+                out.append(f"{path}.{k}: missing")
+            else:
+                _subset(v, got[k], f"{path}.{k}", out)
+    elif exp != got:
+        out.append(f"{path}: expected {exp!r} got {got!r}")
+
+
+def snapshot_expect_errors(exp_snaps, lines):
+    """expect.json `snapshots`: [{"tick": 60, "lanterns": {"L1": {"fuel": 99.0}}, "player": {"capacity": 12}, ...}].
+    Ticks must be multiples of the 10-tick snapshot interval used by this script."""
+    by_tick = {l["tick"]: l for l in lines if l.get("type") == "snapshot"}
+    errs = []
+    for e in exp_snaps:
+        t = e["tick"]
+        if t not in by_tick:
+            errs.append(f"snapshot expectation at tick {t}: no snapshot (script snapshots every 10 ticks)")
+            continue
+        _subset({k: v for k, v in e.items() if k != "tick"}, by_tick[t], f"snapshot@{t}", errs)
+    return errs
 
 
 def main():
@@ -161,6 +247,8 @@ def main():
                 problems.append(f"events differ:\n  expected {exp['events']}\n  got      {got_ev}")
             if "end" in exp and lines[-1] != exp["end"]:
                 problems.append(f"end differs: expected {exp['end']} got {lines[-1]}")
+            if "snapshots" in exp:   # Ticket-03: partial snapshot checks (fuel, capacity, shade state, ...)
+                problems += snapshot_expect_errors(exp["snapshots"], lines)
         rows.append((name, "PASS" if not problems else "FAIL", exp.get("_why", ""), " ".join(_show(c) for c in cmd[1:])))
         if problems:
             fails.append(f"scenario {name}: " + "; ".join(problems))

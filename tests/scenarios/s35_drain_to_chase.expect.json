@@ -1,0 +1,78 @@
+{
+ "_why": "L1 fuel 29 = 1740 units (weak). S1 at (0,1,26.55), 1.55 m from L1 and 12.55 m from the player (z=14.0, > 12 so no chase): drain on tick 1. The player walks +Z at 0.1 m/tick from tick 10: z = 14 + 0.1(k-9), distance to S1 = 26.55 - z. Tick 74: z = 20.5 -> 6.05 > 6 still drain; tick 75: z = 20.6 -> 5.95 <= 6 -> chase (and it moves 1/15 at once). fuel_drain after 60 draining ticks (DESIGN: first at tick 61): units 1739 - 6*60 = 1379 -> 22.983 -> 23.0. Fuel: tick 70 units 1739 - 6*69 = 1325 -> 22.083 -> 22.1; the drain of tick 75 was decided at tick 74, so units(75) = 1739 - 6*74 = 1295; after that only decay: tick 80 1290 -> 21.5; tick 140 1230 -> 20.5. Chasing: gap(k) = 26.55 - (k-74)/15 - (14 + 0.1(k-9)) = 18.3833 - k/6; k=104: 1.0500 > 1, k=105: 0.8833 <= 1 -> player_hit on tick 105 (flames 2, dropped 0). Run stops at 150, during recoil/invulnerability.",
+ "ticks": 150,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   61,
+   "fuel_drain",
+   {
+    "lantern_id": "L1",
+    "shade_id": "S1",
+    "fuel": 23.0
+   }
+  ],
+  [
+   105,
+   "player_hit",
+   {
+    "by": "shade",
+    "flames": 2,
+    "dropped": 0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 150,
+  "state": "playing",
+  "score": 0
+ },
+ "snapshots": [
+  {
+   "tick": 70,
+   "lanterns": {
+    "L1": {
+     "fuel": 22.1
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "drain",
+     "pos": [
+      0,
+      1,
+      26.55
+     ]
+    }
+   }
+  },
+  {
+   "tick": 80,
+   "lanterns": {
+    "L1": {
+     "fuel": 21.5
+    }
+   },
+   "shades": {
+    "S1": {
+     "state": "chase"
+    }
+   }
+  },
+  {
+   "tick": 140,
+   "lanterns": {
+    "L1": {
+     "fuel": 20.5
+    }
+   }
+  }
+ ]
+}

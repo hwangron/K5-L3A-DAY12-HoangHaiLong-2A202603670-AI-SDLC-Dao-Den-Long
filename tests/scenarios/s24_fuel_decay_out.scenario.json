@@ -1,0 +1,26 @@
+{
+ "random_motes": false,
+ "random_shades": false,
+ "motes": [],
+ "shades": [],
+ "lanterns": [
+  {
+   "id": "L1",
+   "lit": true,
+   "fuel": 1.0,
+   "ever_lit": true,
+   "deposited": 10
+  },
+  {
+   "id": "L2",
+   "lit": true,
+   "fuel": 2.0,
+   "ever_lit": true
+  },
+  {
+   "id": "L3",
+   "lit": true,
+   "ever_lit": true
+  }
+ ]
+}

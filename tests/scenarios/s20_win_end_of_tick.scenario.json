@@ -1,12 +1,4 @@
 {
- "player": {
-  "pos": [
-   0,
-   0,
-   0
-  ],
-  "carried": 10
- },
  "random_motes": false,
  "random_shades": false,
  "motes": [],
@@ -17,9 +9,19 @@
     0,
     1,
     4.5
-   ]
+   ],
+   "state": "stunned",
+   "state_ticks_left": 100
   }
  ],
+ "player": {
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "carried": 10
+ },
  "lanterns": [
   {
    "id": "L1",
@@ -46,5 +48,6 @@
    "id": "L5",
    "lit": true
   }
- ]
+ ],
+ "time_left_s": 1
 }

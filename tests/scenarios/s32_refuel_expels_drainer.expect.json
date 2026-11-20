@@ -1,0 +1,64 @@
+{
+ "_why": "DESIGN: scenario shade preset to drain (see s31). L1 fuel 10 (600 units) under the player, S1 draining it from 0.5 m. Tick 1: refuel with carried 10: missing ~5400 units / 600 = 9.0+ -> ceil 10 (also if the preset drain already took 5 units), used min(10, 10) = 10 -> fuel 100.0, +50. Lit above 30 -> safe zone -> S1 (inside 6 m) is pushed to the 6 m edge in <= 30 ticks and cannot hurt (no player_hit), leaves drain (no fuel_drain event afterwards) and is then held at 6.0. Tick 50: units 6000 - 49 = 5951 -> 99.183 -> 99.2; tick 90: 5911 -> 98.517 -> 98.5.",
+ "ticks": 100,
+ "events": [
+  [
+   0,
+   "night_start",
+   {
+    "night": 1
+   }
+  ],
+  [
+   1,
+   "refuel",
+   {
+    "lantern_id": "L1",
+    "amount": 10,
+    "fuel": 100.0
+   }
+  ]
+ ],
+ "end": {
+  "type": "end",
+  "ticks": 100,
+  "state": "playing",
+  "score": 50
+ },
+ "snapshots": [
+  {
+   "tick": 50,
+   "lanterns": {
+    "L1": {
+     "fuel": 99.2
+    }
+   },
+   "shades": {
+    "S1": {
+     "pos": [
+      6.0,
+      1.0,
+      0.0
+     ]
+    }
+   }
+  },
+  {
+   "tick": 90,
+   "lanterns": {
+    "L1": {
+     "fuel": 98.5
+    }
+   },
+   "shades": {
+    "S1": {
+     "pos": [
+      6.0,
+      1.0,
+      0.0
+     ]
+    }
+   }
+  }
+ ]
+}
