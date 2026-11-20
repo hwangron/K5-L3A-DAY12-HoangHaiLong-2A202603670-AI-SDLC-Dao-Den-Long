@@ -1,6 +1,6 @@
 # AGENTS.md - Dao Den Long
 
-3D game, 3 nights (Python logic + Three.js web view). Lab spec: `docs/lab/` (current: `ticket-02.txt`, contract v1.1). Phase notes: `docs/notes/`.
+3D game, 3 nights (Python logic + Three.js web view). Lab spec: `docs/lab/` (current: `ticket-03.txt`, contract v1.2). Phase notes: `docs/notes/`.
 
 ## Commands
 - Verify everything (must be green before you stop): `python3 tools/check.py`
@@ -25,6 +25,7 @@
 - Contract text is exact: event names, field names, shade states, exit codes (malformed file -> 2), tick model, 3-decimal rounding.
 - Counters are integer ticks, decremented in step 2: set n at tick t -> active t..t+n-1.
 - Radius checks use `<= r + EPS` (float accumulation once shifted a pickup by 1 tick).
+- Lantern fuel is integer units (×60), never float. Design decisions: `docs/notes/adr-*.md`; breaking changes: `CHANGELOG.md`.
 - Expected values in `*.expect.json` are computed by hand from the rules (write `_why`), never copied from output.
 - When tests and code disagree, the ticket text decides (then `phase-2-design.md`). Fix whichever is wrong and say why.
 - When a ticket changes a rule: update the test (comment `# Ticket-NN: ...`), record it in `tests/CHANGES-phase-N.md` and `docs/notes/phase-N.md`; never delete tests silently.

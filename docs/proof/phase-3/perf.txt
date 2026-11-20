@@ -1,0 +1,6 @@
+# Full-night headless timing (Phase 3, contract v1.2). Limit: 30 s.
+# Scenario: player flames=1000 so the night runs all its ticks; default spawns, wind, drifters.
+# Windows-11-10.0.26200-SP0 AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD 16 threads, Python 3.14.7
+night 1: exit 0, 1.28 s, end line {"type":"end","ticks":14400,"state":"lost","score":0}
+night 2: exit 0, 1.93 s, end line {"type":"end","ticks":16200,"state":"lost","score":0}
+night 3: exit 0, 2.73 s, end line {"type":"end","ticks":18000,"state":"lost","score":0}

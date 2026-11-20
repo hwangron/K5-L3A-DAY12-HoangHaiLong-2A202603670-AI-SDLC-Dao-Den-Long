@@ -85,3 +85,28 @@ Cách tiết kiệm:
 - **Mọi subagent đều chạy trên Opus 5.5**, vì khi gọi không chỉ định model nên chúng dùng model của phiên chính. Việc của chúng (viết code theo design có sẵn, viết test, viết tài liệu, review) dùng **Sonnet** là đủ. Phần cần suy luận nặng (đọc ticket, viết design, phân xử) giữ ở agent chính.
 - **Agent test tốn nhất** (248k), vì phải tính tay kỳ vọng cho 108 test và 23 kịch bản. Đáng tốn, vì chính các test độc lập này bắt được lỗi E5.
 - **Phase 2 tốn gấp khoảng 12 lần Phase 1 cho subagent:** 5 agent, mỗi agent phải tự đọc lại ticket, design và code. Lần sau sẽ ghép docs vào reviewer và chuyển subagent sang Sonnet.
+
+## Phase 3
+
+### Cách làm
+1. **Điều phối viên** đọc Ticket-03, viết [phase-3-design.md](phase-3-design.md) trước: chốt đơn vị nguyên ×60 cho nhiên liệu, trạng thái `drain`, luật thắng ở bình minh, bảng sở hữu file.
+2. **3 subagent chạy song song**, mỗi agent chỉ sửa file của mình, dùng Sonnet thay vì Opus:
+   - **coder-sim**: `game/sim.py`, `game/maps.py`, `headless.py`, `game.contract.json`.
+   - **tester**: `tests/**`, `tools/check.py`. Viết test hộp đen từ ticket, không đọc code core.
+   - **coder-web**: `web/index.html`, `tools/web_check.py`.
+3. **Giới hạn sử dụng 5 giờ** dừng cả ba subagent giữa chừng. Công việc đã làm được lưu lại, và các agent được tiếp tục từ chỗ dừng.
+4. **Docs agent** (Haiku) viết README, CHANGELOG, ADR, ghi chú phase, bằng chứng và nhật ký AI, chỉ từ số liệu có trong file kết quả.
+
+### Lỗi và quyết định của AI
+- Agent mô phỏng (coder-sim) có một số quyết định triển khai mà ticket không nói rõ (ví dụ thời điểm `fuel_drain` đầu tiên ở tick 61, drain bắt đầu từ tick sau). Các quyết định này được liệt kê trong [ADR-001](adr-001-lantern-fuel.md), phần Quyết định.
+- Phase 3 **không có subagent review riêng** vì giới hạn sử dụng. Kiểm tra độc lập duy nhất là tester viết test từ ticket, tách khỏi coder.
+
+### Token và chi phí
+| Agent | Token | Ghi chú |
+|---|---|---|
+| coder-sim | 158,810 | Số đo thật |
+| coder-web | 181,019 | Số đo thật |
+| tester | 294,124 | Số đo thật |
+| docs | 130,627 (Haiku) | Số đo thật từ harness |
+
+- Subagent Phase 3 chạy trên **Sonnet** (coder, tester) và **Haiku** (docs), không còn chạy trên Opus như Phase 2. Đây là thay đổi chủ đích để giảm chi phí.
