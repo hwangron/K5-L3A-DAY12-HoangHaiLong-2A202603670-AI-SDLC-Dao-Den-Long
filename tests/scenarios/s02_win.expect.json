@@ -1,0 +1,7 @@
+{
+  "_why": "L1 default at (0,0,18), player 2 m away (<= interact 2.5). Deposit 5 lights the last lantern -> won. Score 100 + 2*floor(299.983) + 50*3 = 848.",
+  "ticks": 600,
+  "events": [[1, "deposit", {"lantern_id": "L1", "amount": 5, "deposited": 5}], [1, "lantern_lit", {"lantern_id": "L1"}],
+             [1, "game_over", {"result": "won", "reason": "all_lit"}]],
+  "end": {"type": "end", "ticks": 1, "state": "won", "score": 848}
+}

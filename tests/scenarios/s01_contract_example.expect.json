@@ -1,0 +1,6 @@
+{
+  "_why": "PRD example. Mote at z=5, pickup_radius 1 -> picked when z>=4 (40 steps x 0.1 m). Player at z=12 at tick 120 (far from L1 at z=25, interact does nothing). Pulse at input tick 200 -> event tick 201, S1 (chasing) is inside 6 m. Score 10 + 20.",
+  "ticks": 300,
+  "events": [[40, "mote_picked", {"carried": 1}], [201, "pulse", {"stunned_ids": ["S1"]}]],
+  "end": {"type": "end", "ticks": 300, "state": "playing", "score": 30}
+}

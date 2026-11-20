@@ -1,0 +1,7 @@
+{
+  "_why": "Walk +Z 0.1 m/tick: motes picked at z=2,4,6 (ticks 20,40,60). Stop at z=16, 2 m from L1 -> deposit 3 (not lit, cost 5).",
+  "ticks": 200,
+  "events": [[20, "mote_picked", {"carried": 1}], [40, "mote_picked", {"carried": 2}], [60, "mote_picked", {"carried": 3}],
+             [161, "deposit", {"lantern_id": "L1", "amount": 3, "deposited": 3}]],
+  "end": {"type": "end", "ticks": 200, "state": "playing", "score": 30}
+}

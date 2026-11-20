@@ -1,0 +1,6 @@
+{
+  "_why": "Shade 3 m away moves 3.5/60 m per tick; needs <= 1 m -> after ceil(2/0.058333)=35 steps. Last flame -> lost.",
+  "ticks": 600,
+  "events": [[35, "player_hit", {"by": "shade", "flames": 0, "dropped": 0}], [35, "game_over", {"result": "lost", "reason": "no_flames"}]],
+  "end": {"type": "end", "ticks": 35, "state": "lost", "score": 0}
+}

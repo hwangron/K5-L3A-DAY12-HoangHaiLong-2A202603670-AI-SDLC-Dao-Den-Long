@@ -1,0 +1,6 @@
+{
+  "_why": "2 s of night left = 120 steps, then dawn -> lost.",
+  "ticks": 1000,
+  "events": [[120, "game_over", {"result": "lost", "reason": "dawn"}]],
+  "end": {"type": "end", "ticks": 120, "state": "lost", "score": 0}
+}
