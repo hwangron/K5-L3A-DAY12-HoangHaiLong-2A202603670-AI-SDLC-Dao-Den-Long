@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-  /* Ticket-02 palette (Part 3): UI danger #FF5A5F, UI text #F5F1E6, gold/score #F2C14E */
+  /* Ticket-02 palette (Part 3): UI danger #FF5A5F, UI text #F5F1E6, gold/score #F2C14E.
+     Ticket-03 colour-blind palette (body.cb): UI warning #FFFFFF + a warning icon, Bóng Mực rim/eyes #00B3FF */
   :root {
-    --sky: #0E1430; --mist: #1B2350; --text: #F5F1E6; --danger: #FF5A5F; --gold: #F2C14E;
+    --sky: #0E1430; --mist: #1B2350; --text: #F5F1E6; --danger: #FF5A5F; --danger-rgb: 255,90,95; --gold: #F2C14E;
     --lit: #FFB347; --core: #FFE9B0; --off: #5B5F6E; --mote: #FFF6C2; --halo: #FFE58A; --scarf: #C8102E;
     --panel: rgba(14, 20, 48, 0.78); --panel2: rgba(27, 35, 80, 0.92);
   }
+  body.cb { --danger: #FFFFFF; --danger-rgb: 255,255,255; }
   html, body { margin: 0; height: 100%; background: var(--sky); color: var(--text); font-family: system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
   canvas { display: block; }
   .hidden { display: none !important; }
@@ -35,6 +37,9 @@
   .big { font-size: 40px; color: var(--gold); font-weight: 700; margin: 6px 0; }
   .setting { display: grid; grid-template-columns: 130px 1fr 48px; gap: 10px; align-items: center; margin: 12px 0; text-align: left; }
   .setting input { width: 100%; accent-color: var(--lit); }
+  .setting.toggle { grid-template-columns: 1fr 28px; }
+  .setting.toggle input { width: 22px; height: 22px; margin: 0; justify-self: end; }
+  .setting.toggle small { grid-column: 1 / -1; opacity: .65; font-size: 12px; margin-top: -6px; }
   #dawn { background: linear-gradient(180deg, rgba(40,40,90,.55), rgba(255,150,90,.55) 70%, rgba(255,220,150,.6)); }
   #dawn .card { background: rgba(60, 40, 70, .88); }
   .breakdown { font-size: 14px; margin: 8px auto; border-spacing: 14px 2px; }
@@ -47,12 +52,18 @@
   #flames svg { width: 26px; height: 30px; }
   #timer { top: 12px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
   #timer.danger { color: var(--danger); animation: blink 1s steps(2, start) infinite; }
+  body.cb #timer.danger::before { content: "⚠ "; }
+  .warn { color: var(--danger); font-weight: 700; }
+  body.cb .warn::before { content: "⚠ "; }
   @keyframes blink { to { visibility: hidden; } }
   #topright { top: 12px; right: 12px; text-align: right; font-size: 15px; line-height: 1.5; }
   #topright .score { color: var(--gold); font-weight: 700; font-size: 18px; }
+  #topright .need { font-size: 13px; opacity: .8; }
+  #topright .need.ok { color: #9be39b; opacity: 1; }
+  #topright .need.low { color: var(--danger); opacity: 1; font-weight: 600; }
   #nightname { font-size: 12px; opacity: .7; }
-  #motebar { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 8px 10px; align-items: center; }
-  .slot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #3c4890; background: rgba(0,0,0,.25); }
+  #motebar { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 8px 10px; align-items: center; max-width: calc(100vw - 330px); }
+  .slot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #3c4890; background: rgba(0,0,0,.25); }
   .slot.on { background: radial-gradient(circle, var(--mote) 35%, var(--halo) 70%); border-color: var(--halo); box-shadow: 0 0 8px var(--halo); }
   #motecount { margin-left: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
   #cooldowns { bottom: 16px; right: 12px; display: flex; gap: 10px; padding: 8px 10px; }
@@ -71,7 +82,7 @@
   #wind .dir { display: inline-block; font-size: 18px; }
   #toast { position: absolute; top: 108px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 6px 14px; border-radius: 14px; font-size: 14px; transition: opacity .4s; }
   #respawn { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; background: var(--panel); padding: 10px 18px; border-radius: 12px; }
-  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,90,95,.55)); opacity: 0; transition: opacity .35s; }
+  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(var(--danger-rgb),.55)); opacity: 0; transition: opacity .35s; }
   #fps { position: fixed; left: 12px; bottom: 12px; z-index: 30; font: 12px ui-monospace, Consolas, monospace; background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
   #seed { position: fixed; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; opacity: .35; z-index: 5; pointer-events: none; }
 </style>
@@ -81,7 +92,7 @@
 <div id="hud" class="hidden">
   <div id="flames" class="hpanel"></div>
   <div id="timer" class="hpanel">5:00</div>
-  <div id="topright" class="hpanel"><div id="nightname"></div><div>Đèn <b id="lanterns">0/5</b></div><div>Điểm <span class="score" id="score">0</span></div></div>
+  <div id="topright" class="hpanel"><div id="nightname"></div><div>Đèn đang sáng <b id="lanterns">0/5</b> <span class="need" id="need">(cần 3)</span></div><div>Điểm <span class="score" id="score">0</span></div></div>
   <div id="wind" class="hpanel hidden"><span>🍃 Gió sắp nổi!</span><span class="dir" id="winddir">➤</span></div>
   <div id="toast" class="hidden"></div>
   <div id="prompt" class="hidden"></div>
@@ -104,7 +115,7 @@
 <div id="menu" class="overlay hidden"><div class="card">
   <h1>Đảo Đèn Lồng</h1>
   <h2>Ba hòn đảo · Ba đêm</h2>
-  <p>Sương đen đã nuốt ánh sáng của quần đảo. Giúp Mây gom đom đóm, thắp lại các Đèn Lồng Lớn trên Đảo Bến, Đảo Cau và Đảo Chuông trước bình minh.</p>
+  <p>Sương đen đã nuốt ánh sáng của quần đảo. Giúp Mây gom đom đóm, thắp và châm dầu cho các Đèn Lồng Lớn trên Đảo Bến, Đảo Cau và Đảo Chuông, giữ đảo sáng cho tới bình minh.</p>
   <div class="btns">
     <button class="btn primary" id="btn-start" data-primary type="button">Bắt đầu</button>
     <div class="row"><span class="hint" style="align-self:center">Chọn Đêm:</span>
@@ -117,7 +128,7 @@
     <tr><td><kbd>W A S D</kbd></td><td>Đi lại (theo hướng camera)</td></tr>
     <tr><td><kbd>Kéo chuột</kbd> / <kbd>← → ↑ ↓</kbd></td><td>Xoay camera · lăn chuột: thu phóng</td></tr>
     <tr><td><kbd>Space</kbd> · <kbd>Shift</kbd></td><td>Nhảy · Lướt</td></tr>
-    <tr><td><kbd>E</kbd></td><td>Nạp đom đóm vào đèn gần nhất</td></tr>
+    <tr><td><kbd>E</kbd></td><td>Nạp đom đóm: thắp đèn tắt · châm dầu đèn đang sáng</td></tr>
     <tr><td><kbd>F</kbd></td><td>Tỏa Sáng: choáng Bóng Mực (3 đom đóm)</td></tr>
     <tr><td><kbd>Esc</kbd> / <kbd>P</kbd> · <kbd>F3</kbd></td><td>Tạm dừng · hiện FPS</td></tr>
   </table>
@@ -148,6 +159,8 @@
   <h1>Cài đặt</h1>
   <div class="setting"><label for="set-volume">Âm lượng</label><input id="set-volume" type="range" min="0" max="100" step="1"><span id="val-volume"></span></div>
   <div class="setting"><label for="set-sens">Độ nhạy chuột</label><input id="set-sens" type="range" min="10" max="300" step="5"><span id="val-sens"></span></div>
+  <div class="setting toggle"><label for="set-cb">Bảng màu dễ phân biệt</label><input id="set-cb" type="checkbox">
+    <small>Bóng Mực viền xanh dương, cảnh báo màu trắng kèm ⚠. Đèn tắt luôn bị xẹp và có vết rách; đèn sắp hết dầu luôn nhấp nháy.</small></div>
   <div class="btns"><button class="btn primary" id="btn-settings-done" data-primary type="button">Xong</button></div>
   <p class="hint">Cài đặt được lưu trên trình duyệt này.</p>
 </div></div>
@@ -186,18 +199,23 @@
 // The page only renders and reads input. Every game rule lives in game/sim.py (run here by Pyodide).
 const $ = (id) => document.getElementById(id);
 const TUNING = { carry_capacity: 10, lantern_cost: 10, interact_radius: 2.0, safe_radius: 6.0, pulse_radius: 5.0,
-  pulse_cost: 3, flames: 3, dash_cooldown_s: 1.5, pulse_cooldown_s: 3.0 };   // display fallbacks; overwritten from sim.TUNING
+  pulse_cost: 3, flames: 3, dash_cooldown_s: 1.5, pulse_cooldown_s: 3.0,
+  fuel_max: 100, relight_cost: 5, win_ratio: 0.6, low_fuel_threshold: 30, capacity_max: 20 };   // display fallbacks; overwritten from sim.TUNING
 const ISLAND_NAMES = { 1: "Đảo Bến", 2: "Đảo Cau", 3: "Đảo Chuông" };
 const ONG_DANG = {
-  1: "Mây à, sương đen đã nuốt Đảo Bến. Gom đom đóm, thắp lại năm ngọn đèn trước bình minh nhé!",
-  2: "Hai đảo, một cây cầu tre không lan can. Bục nhảy sẽ đưa con bay qua mây. Coi chừng Gió Lạc, nó mê đom đóm lắm!",
-  3: "Đảo Chuông có ba tầng và gió dữ. Thấy lá bay là gió sắp tới, đứng cho vững. Thắp đủ bảy đèn để chuông bình minh vang lên.",
+  1: "Mây à, sương đen đã nuốt Đảo Bến. Thắp đèn, châm dầu cho chúng, và giữ ít nhất ba ngọn sáng tới bình minh nhé!",
+  2: "Hai đảo, một cây cầu tre không lan can. Bục nhảy sẽ đưa con bay qua mây. Coi chừng Gió Lạc, nó mê đom đóm lắm. Đèn nào sắp cạn dầu thì Bóng Mực kéo tới đó đấy!",
+  3: "Đảo Chuông có ba tầng và gió dữ. Thấy lá bay là gió sắp tới, đứng cho vững. Đừng để đèn tắt: giữ đủ năm ngọn sáng khi chuông bình minh vang lên.",
 };
 const GOALS = {
-  1: "Thắp 5 đèn trong 5 phút. Mỗi đèn cần 10 đom đóm.",
-  2: "Thắp 6 đèn trên hai đảo trong 5 phút 30 giây. Bùa Gió đỏ nằm giữa cầu.",
-  3: "Thắp 7 đèn trên ba tầng trong 6 phút. Dốc ở hai bên, bục nhảy đưa lên tầng tháp chuông.",
+  1: "Giữ ít nhất 3/5 đèn sáng tới bình minh (4 phút). Đèn hao 1 dầu mỗi giây: nhớ châm dầu.",
+  2: "Giữ ít nhất 4/6 đèn sáng tới bình minh (4 phút 30 giây). Bùa Gió đỏ nằm giữa cầu.",
+  3: "Giữ ít nhất 5/7 đèn sáng tới bình minh (5 phút). Dốc ở hai bên, bục nhảy đưa lên tầng tháp chuông.",
 };
+const fuelMax = () => TUNING.fuel_max || 100;
+const lowFuelAt = () => TUNING.low_fuel_threshold || 30;
+const needLit = (n) => Math.ceil((TUNING.win_ratio || 0.6) * n - 1e-9);   // HUD only; the sim decides the win
+const isLow = (l) => l.lit && (l.fuel ?? fuelMax()) < lowFuelAt();
 let py = null, simMod = null, simStep = null, simNew = null, simMap = null;
 let snap = null, prevSnap = null, extra = {}, mapData = null, seed = 0;
 let ui = "loading", night = 1, settingsFrom = "menu", endTimer = null;
@@ -266,7 +284,9 @@ async function loadSim() {
 
 // ================================================================ settings (localStorage, always guarded)
 const SETTINGS_KEY = "dao-den-long.settings";
-const settings = { volume: 70, sens: 100 };
+const settings = { volume: 70, sens: 100, cb: false };
+// Bóng Mực rim/eyes and the UI warning colour (Ticket-03 Part 6); render() reads PAL every frame
+const PAL = { accent: 0x7A3CFF, warn: 0xFF5A5F };
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -274,20 +294,29 @@ function loadSettings() {
       const s = JSON.parse(raw);
       if (Number.isFinite(s.volume)) settings.volume = Math.max(0, Math.min(100, s.volume));
       if (Number.isFinite(s.sens)) settings.sens = Math.max(10, Math.min(300, s.sens));
+      if (typeof s.cb === "boolean") settings.cb = s.cb;
     }
   } catch (e) { /* storage blocked or corrupt: keep defaults */ }
 }
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ }
 }
+function applyColorblind() {
+  document.body.classList.toggle("cb", settings.cb);
+  PAL.accent = settings.cb ? 0x00B3FF : 0x7A3CFF;
+  PAL.warn = settings.cb ? 0xFFFFFF : 0xFF5A5F;
+}
 function showSettingsValues() {
   $("set-volume").value = settings.volume; $("val-volume").textContent = settings.volume;
   $("set-sens").value = settings.sens; $("val-sens").textContent = (settings.sens / 100).toFixed(2) + "×";
+  $("set-cb").checked = settings.cb;
 }
 loadSettings();
+applyColorblind();
 showSettingsValues();
 $("set-volume").addEventListener("input", (e) => { settings.volume = +e.target.value; showSettingsValues(); applyVolume(); saveSettings(); sfx.pickup(3); });
 $("set-sens").addEventListener("input", (e) => { settings.sens = +e.target.value; showSettingsValues(); saveSettings(); });
+$("set-cb").addEventListener("change", (e) => { settings.cb = e.target.checked; applyColorblind(); saveSettings(); hudKey = ""; });
 
 // ================================================================ sound (WebAudio, synthesized; starts after a user gesture)
 let actx = null, master = null, musicBus = null, sfxBus = null, musicTimer = null, musicOn = false, musicStep = 0, musicNext = 0, noiseBuf = null;
@@ -343,6 +372,9 @@ const sfx = {
   steal: () => tone(700, 0.35, { type: "sawtooth", vol: 0.06, slide: 0.5 }),
   charm: () => [660, 990, 1320].forEach((f, i) => tone(f, 0.3, { type: "triangle", vol: 0.1, at: i * 0.06 })),
   click: () => tone(660, 0.06, { type: "triangle", vol: 0.06 }),
+  refuel: () => { tone(330, 0.16, { type: "triangle", vol: 0.1, slide: 1.8 }); tone(495, 0.22, { type: "triangle", vol: 0.1, slide: 1.6, at: 0.09 }); noise(0.25, { vol: 0.04, freq: 1500, sweep: 0.5 }); },
+  out: () => { tone(300, 0.7, { type: "sawtooth", vol: 0.1, slide: 0.35 }); noise(0.5, { vol: 0.08, freq: 600, sweep: 0.25 }); },
+  drain: () => tone(95, 0.35, { type: "sawtooth", vol: 0.05, slide: 0.7, attack: 0.08 }),
 };
 // night music: a soft drone plus a slow pentatonic arpeggio (different scale per night)
 const SCALES = { 1: [220, 247, 277, 330, 370, 440], 2: [196, 220, 262, 294, 330, 392], 3: [174.6, 196, 233, 262, 294, 349] };
@@ -432,6 +464,9 @@ const M = {   // shared materials (palette from ticket Part 3)
   stone: new THREE.MeshLambertMaterial({ color: 0x8a8478 }),
   lampOff: new THREE.MeshLambertMaterial({ color: 0x5B5F6E }),
   lampOn: new THREE.MeshBasicMaterial({ color: 0xFFB347 }),
+  lampDim: new THREE.MeshBasicMaterial({ color: 0x7d5322 }),       // low-fuel blink: "off" phase of a lit lamp
+  paperTorn: new THREE.MeshLambertMaterial({ color: 0x8a8d9c, side: THREE.DoubleSide }),
+  slit: new THREE.MeshBasicMaterial({ color: 0x0b0d16 }),
   core: new THREE.MeshBasicMaterial({ color: 0xFFE9B0 }),
   coreOff: new THREE.MeshLambertMaterial({ color: 0x3e414d }),
   moteCore: new THREE.MeshBasicMaterial({ color: 0xFFF6C2 }),
@@ -679,24 +714,48 @@ function blob(size) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(size, 16), M.shadow);
   m.rotation.x = -Math.PI / 2; scene.add(m); return m;
 }
+const LAMP_Y = 2.45, LAMP_Z = 0.85;       // lamp centre inside a lantern group
+const BAR_W = 1.7;
+// the lamp body (paper + caps + tassel) lives in `shell` so an unlit lantern can be squashed 20% as one piece
 function makeLantern() {
   const g = new THREE.Group();
   const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 3.2, 8), M.woodPlain); post.position.y = 1.6;
   const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.0), M.woodPlain); arm.position.set(0, 3.15, 0.4);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), M.lampOff); lamp.scale.y = 1.25; lamp.position.set(0, 2.45, 0.85);
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), M.coreOff); core.position.copy(lamp.position);
-  const capT = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 0.16, 12), M.red); capT.position.set(0, 3.12, 0.85);
-  const capB = capT.clone(); capB.position.y = 1.78;
-  const tassel = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.45, 6), M.gold); tassel.position.set(0, 1.5, 0.85); tassel.rotation.x = Math.PI;
-  const halo = glowSprite(0xFFB347, 7, 0); halo.position.copy(lamp.position);
+  const shell = new THREE.Group(); shell.position.set(0, LAMP_Y, LAMP_Z);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), M.lampOff); lamp.scale.y = 1.25;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), M.coreOff);
+  const capT = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 0.16, 12), M.red); capT.position.y = 0.67;
+  const capB = capT.clone(); capB.position.y = -0.67;
+  const tassel = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.45, 6), M.gold); tassel.position.y = -0.95; tassel.rotation.x = Math.PI;
+  // torn-paper look for an unlit lantern: ragged edge, slits, a dangling strip (readable without colour)
+  const tear = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2, spike = new THREE.Mesh(new THREE.ConeGeometry(0.075, i % 2 ? 0.34 : 0.2, 4), M.paperTorn);
+    spike.position.set(Math.cos(a) * 0.46, 0.62, Math.sin(a) * 0.46); spike.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); tear.add(spike);
+  }
+  for (const [x, y, rz] of [[-0.2, 0.05, 0.5], [0.22, -0.2, -0.35], [0.0, 0.3, 0.1]]) {
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.42, 0.04), M.slit); slit.position.set(x, y, 0.5); slit.rotation.z = rz; tear.add(slit);
+  }
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.025), M.paperTorn); strip.position.set(0.38, -0.55, 0.3); strip.rotation.set(0.2, 0.5, 0.25); tear.add(strip);
+  shell.add(lamp, core, capT, capB, tassel, tear);
+  const lampPos = new THREE.Vector3(0, LAMP_Y, LAMP_Z);
+  const halo = glowSprite(0xFFB347, 7, 0); halo.position.copy(lampPos);
   const ground = new THREE.Mesh(new THREE.CircleGeometry(TUNING.safe_radius, 48), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xFFB347, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   ground.rotation.x = -Math.PI / 2; ground.position.y = 0.05;
   const ring = new THREE.Mesh(new THREE.RingGeometry(TUNING.safe_radius - 0.12, TUNING.safe_radius, 72), new THREE.MeshBasicMaterial({ color: 0xFFE9B0, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06;
   const meter = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32, 1, 0, 0.001), new THREE.MeshBasicMaterial({ color: 0xFFE58A, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
   meter.position.set(0, 4.2, 0.85);
-  g.add(post, arm, lamp, core, capT, capB, tassel, halo, ground, ring, meter);
-  g.userData = { lamp, core, halo, ground, ring, meter, lastF: -1, flash: 0 };
+  // fuel bar above a lit lantern (faces the camera); the notch marks the low-fuel line
+  const bar = new THREE.Group(); bar.position.set(0, 4.2, LAMP_Z);
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(BAR_W + 0.12, 0.3), new THREE.MeshBasicMaterial({ color: 0x0E1430, transparent: true, opacity: 0.85, depthWrite: false }));
+  const barFill = new THREE.Mesh(new THREE.PlaneGeometry(BAR_W, 0.18), new THREE.MeshBasicMaterial({ color: 0xFFB347, transparent: true, depthWrite: false }));
+  barFill.position.z = 0.01;
+  const barMark = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.3), new THREE.MeshBasicMaterial({ color: 0xF5F1E6, transparent: true, opacity: 0.9, depthWrite: false }));
+  barMark.position.set(-BAR_W / 2 + BAR_W * 0.3, 0, 0.02);
+  bar.add(barBg, barFill, barMark); bar.visible = false;
+  g.add(post, arm, shell, halo, ground, ring, meter, bar);
+  g.userData = { shell, lamp, core, halo, ground, ring, meter, bar, barBg, barFill, barMark, tear, lastF: -1, flash: 0, low: false, blinkOn: true };
   world.add(g);
   return g;
 }
@@ -707,11 +766,18 @@ function makeMote() {
   g.add(c, h); g.userData = { h }; world.add(g); return g;
 }
 const shadeGeo = new THREE.SphereGeometry(0.75, 18, 12), eyeGeo = new THREE.SphereGeometry(0.1, 8, 6), tailGeo = new THREE.ConeGeometry(0.55, 1.1, 12);
+const beadGeo = new THREE.SphereGeometry(1, 8, 6), TEND_N = 12, TEND_FLOW = 3;
 function makeShade() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x120A1A, emissive: 0x120A1A, transparent: true, opacity: 0.95 });
-  const rimMat = new THREE.MeshBasicMaterial({ color: 0x7A3CFF, transparent: true, opacity: 0.5, side: THREE.BackSide, depthWrite: false });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xd9c6ff });
+  const rimMat = new THREE.MeshBasicMaterial({ color: PAL.accent, transparent: true, opacity: 0.5, side: THREE.BackSide, depthWrite: false });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: PAL.accent });
+  // drain tendril: a wobbling chain of dark beads from the shade to the lantern it feeds on, plus amber specks flowing back to it
+  const tendril = new THREE.Group(), beadMat = new THREE.MeshBasicMaterial({ color: 0x120A1A });
+  const beads = [], flow = [];
+  for (let i = 0; i < TEND_N; i++) { const b = new THREE.Mesh(beadGeo, beadMat); tendril.add(b); beads.push(b); }
+  for (let i = 0; i < TEND_FLOW; i++) { const s = glowSprite(0xFFB347, 0.55, 0.95); tendril.add(s); flow.push(s); }
+  tendril.visible = false; world.add(tendril);
   const body = new THREE.Mesh(shadeGeo, bodyMat), rim = new THREE.Mesh(shadeGeo, rimMat);
   rim.scale.setScalar(1.14);
   const tail = new THREE.Mesh(tailGeo, bodyMat); tail.rotation.x = Math.PI; tail.position.y = -0.75;
@@ -720,7 +786,7 @@ function makeShade() {
   const stars = new THREE.Group();
   for (let i = 0; i < 3; i++) { const s = glowSprite(0xF2C14E, 0.45, 1); s.position.set(Math.cos(i * 2.1) * 0.6, 1.0, Math.sin(i * 2.1) * 0.6); stars.add(s); }
   g.add(body, rim, tail, e1, e2, stars);
-  g.userData = { bodyMat, rimMat, eyeMat, stars, born: clock, shadow: blob(0.7) };
+  g.userData = { bodyMat, rimMat, eyeMat, stars, born: clock, shadow: blob(0.7), tendril, beadMat, beads, flow };
   world.add(g);
   return g;
 }
@@ -756,6 +822,7 @@ function sync(objs, list, make) {
   for (const id in objs) if (!seen.has(id)) {
     const o = objs[id]; world.remove(o);
     if (o.userData.shadow) scene.remove(o.userData.shadow);
+    if (o.userData.tendril) world.remove(o.userData.tendril);
     delete objs[id];
   }
 }
@@ -875,7 +942,7 @@ function startNight(n, { skipIntro = false } = {}) {
   snap = r.snap; prevSnap = null; extra = r.extra || {};
   mapData = simMap ? pyJSON(simMap(n)) : fallbackMap(n, snap);
   buildWorld(mapData);
-  lastCount = null; windWarnSeen = false; windWasActive = false;
+  lastCount = null; windWarnSeen = false; windWasActive = false; lastReason = null;
   camTarget.set(...snap.player.pos);
   yaw = 0; pitch = 22;
   $("seed").textContent = "seed " + seed;
@@ -916,13 +983,24 @@ function endNight() {
   endTimer = setTimeout(() => showResult(won), 1100);
 }
 function showResult(won) {
-  const lit = snap.lanterns.filter((l) => l.lit).length, total = Object.values(runScores).reduce((a, b) => a + b, 0);
+  const n = snap.lanterns.length, lit = snap.lanterns.filter((l) => l.lit).length, need = needLit(n);
+  const total = Object.values(runScores).reduce((a, b) => a + b, 0);
   if (won && night === 3) { showDawn(); return; }
   ui = "result"; hideScreens(); show("result");
   const name = mapData.name || ISLAND_NAMES[night];
-  $("res-title").textContent = won ? `${name} đã sáng lại!` : (lastReason === "dawn" ? "Trời đã sáng mà đèn chưa đủ…" : "Ngọn lửa của Mây đã tắt…");
-  $("res-msg").textContent = won ? "Ông Đăng mỉm cười: “Đêm tới còn khó hơn đấy.”" : "Đừng nản, Mây. Thử lại đêm này nhé.";
-  $("res-table").innerHTML = `<tr><td>Đèn đã thắp</td><td>${lit}/${snap.lanterns.length}</td></tr>` +
+  // game_over.reason: dawn_survived (won) · dawn (time up, too few lit) · no_flames (Ngọn Lửa ran out). "all_lit" no longer exists.
+  const reason = lastReason || (won ? "dawn_survived" : snap.player.flames <= 0 ? "no_flames" : "dawn");
+  const TEXT = {
+    dawn_survived: [`${name} vẫn sáng tới bình minh!`, `Bình minh lên với ${lit}/${n} đèn còn sáng (cần ${need}). Ông Đăng mỉm cười: “Đêm tới còn khó hơn đấy.”`],
+    dawn: ["Trời đã sáng mà đèn chưa đủ…", `Chỉ ${lit}/${n} đèn còn sáng, cần ít nhất ${need}. Hãy châm dầu cho đèn và thắp lại những ngọn đã tắt (chỉ ${TUNING.relight_cost || 5} đom đóm).`],
+    no_flames: ["Ngọn lửa của Mây đã tắt…", "Mây hết Ngọn Lửa trước bình minh. Tránh Bóng Mực và đừng rơi khỏi đảo nhé. Thử lại đêm này."],
+  };
+  const [title, msg] = TEXT[reason] || TEXT[won ? "dawn_survived" : "dawn"];
+  $("res-title").textContent = title;
+  $("res-msg").textContent = msg;
+  const relit = snap.lanterns.reduce((a, l) => a + (l.relit_count || 0), 0);
+  $("res-table").innerHTML = `<tr><td>Đèn đang sáng lúc bình minh</td><td>${lit}/${n} (cần ${need})</td></tr>` +
+    `<tr><td>Lần thắp lại đèn</td><td>${relit}</td></tr>` +
     `<tr><td>Ngọn Lửa còn lại</td><td>${snap.player.flames}</td></tr>` +
     `<tr><td>Thời gian còn</td><td>${fmtTime(snap.time_left_s)}</td></tr>` +
     `<tr><td>Điểm Đêm ${night}</td><td>${snap.score}${won ? "" : " (không tính)"}</td></tr>` +
@@ -964,7 +1042,10 @@ function onEvent(ev) {
   switch (ev.name) {
     case "mote_picked": sfx.pickup(d.carried || 0); break;
     case "deposit": sfx.deposit(); break;
-    case "lantern_lit": sfx.lit(); { const o = lanternObjs[d.lantern_id]; if (o) o.userData.flash = 1; } toast("Đèn " + d.lantern_id + " đã sáng!"); break;
+    case "lantern_lit": sfx.lit(); { const o = lanternObjs[d.lantern_id]; if (o) o.userData.flash = 1; } toast("Đèn " + d.lantern_id + (d.relight ? " đã thắp lại!" : " đã sáng!")); break;
+    case "refuel": sfx.refuel(); { const o = lanternObjs[d.lantern_id]; if (o) o.userData.flash = Math.max(o.userData.flash, 0.35); } toast(`Châm dầu đèn ${d.lantern_id}: ${d.fuel}/${fuelMax()}`); break;
+    case "lantern_out": sfx.out(); toast("Đèn " + d.lantern_id + " đã tắt! Thắp lại chỉ cần " + (TUNING.relight_cost || 5) + " đom đóm"); break;
+    case "fuel_drain": sfx.drain(); break;
     case "pulse": sfx.pulse(); pulseT = 0; pulseAt = snap.player.pos.slice(); break;
     case "player_hit": sfx.hit(); hitFx = 1; if (d.by === "fall") toast("Mây rơi khỏi đảo! −1 Ngọn Lửa"); break;
     case "shade_spawned": sfx.spawn(); break;
@@ -1008,26 +1089,33 @@ const FLAME_SVG = (on) => `<svg viewBox="0 0 24 28"><path d="M12 1c1.5 5 7 7.5 7
   (on ? `<path d="M12 12c.8 2.5 3 3.5 3 6.5a3 3 0 0 1-6 0c0-2 1.5-3 3-6.5z" fill="#FFE9B0"/>` : "") + `</svg>`;
 let hudKey = "";
 function fmtTime(s) { const t = Math.max(0, Math.ceil(s - 1e-9)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; }
-function nearestUnlit(maxD) {
+// nearest lantern that wants something from Mây: unlit, or lit but not full (ties: smaller id first, as in the sim).
+// `pred` narrows the set (the prompt uses every such lantern, the arrow only unlit / nearly-out ones).
+function nearestLantern(maxD, pred) {
   const p = snap.player.pos; let best = null, bd = Infinity;
   for (const l of snap.lanterns) {
-    if (l.lit) continue;
+    if (!pred(l)) continue;
     const d = Math.hypot(l.pos[0] - p[0], l.pos[2] - p[2]);
     if (d < bd - 1e-9) { bd = d; best = l; }
   }
   return best && bd <= maxD ? [best, bd] : (maxD === Infinity && best ? [best, bd] : null);
 }
+const canReceive = (l) => !l.lit || (l.fuel ?? fuelMax()) < fuelMax();
+const needsAttention = (l) => !l.lit || isLow(l);
 function updateHud(force) {
   if (!snap) return;
-  const p = snap.player, lit = snap.lanterns.filter((l) => l.lit).length, cap = TUNING.carry_capacity;
-  const key = [p.flames, lit, snap.score, p.carried, Math.ceil(snap.time_left_s)].join("|");
+  const p = snap.player, n = snap.lanterns.length, lit = snap.lanterns.filter((l) => l.lit).length;
+  const cap = p.capacity ?? TUNING.carry_capacity, need = needLit(n);
+  const key = [p.flames, lit, n, snap.score, p.carried, cap, Math.ceil(snap.time_left_s), settings.cb ? 1 : 0].join("|");
   if (force || key !== hudKey) {
     hudKey = key;
     let fl = ""; for (let i = 0; i < TUNING.flames; i++) fl += FLAME_SVG(i < p.flames);
     $("flames").innerHTML = fl;
     $("timer").textContent = fmtTime(snap.time_left_s);
     $("timer").classList.toggle("danger", snap.time_left_s <= 30);
-    $("lanterns").textContent = `${lit}/${snap.lanterns.length}`;
+    $("lanterns").textContent = `${lit}/${n}`;
+    $("need").textContent = `(cần ${need})`;
+    $("need").className = "need " + (lit >= need ? "ok" : "low warn");
     $("score").textContent = snap.score;
     let bar = ""; for (let i = 0; i < cap; i++) bar += `<div class="slot ${i < p.carried ? "on" : ""}"></div>`;
     $("motebar").innerHTML = bar + `<span id="motecount">${p.carried}/${cap}</span>`;
@@ -1044,9 +1132,13 @@ function updateHud(force) {
   pEl.style.opacity = p.carried >= TUNING.pulse_cost ? 1 : 0.5;
   show("charmtag", charm); if (charm) $("charmtag").textContent = `Bùa Gió ${Math.ceil(p.charm_s)}s`;
   // interact prompt
-  const near = ui === "play" && nearestUnlit(TUNING.interact_radius);
+  const near = ui === "play" && nearestLantern(TUNING.interact_radius, canReceive);
   show("prompt", !!near);
-  if (near) $("prompt").innerHTML = `<kbd>E</kbd> — Nạp ánh sáng (${near[0].deposited}/${TUNING.lantern_cost})` + (p.carried ? "" : " · cần đom đóm");
+  if (near) {
+    const l = near[0], cost = l.ever_lit ? (TUNING.relight_cost || 5) : TUNING.lantern_cost;
+    $("prompt").innerHTML = (l.lit ? `<kbd>E</kbd> — Châm dầu (${Math.round(l.fuel)})` : `<kbd>E</kbd> — Nạp ánh sáng (${l.deposited}/${cost})`)
+      + (p.carried ? "" : " · cần đom đóm");
+  }
   // wind warning
   const ww = extra.wind_warning;
   show("wind", ww !== null && ww !== undefined && ui === "play");
@@ -1059,10 +1151,10 @@ function updateHud(force) {
   show("respawn", !!extra.respawning && ui === "play");
   $("vignette").style.opacity = hitFx > 0 ? hitFx : (p.flames === 1 ? 0.25 + 0.1 * Math.sin(clock * 4) : 0);
 }
-const tmpV = new THREE.Vector3();
+const tmpV = new THREE.Vector3(), tmpC = new THREE.Color();
 function updateArrow() {
   const a = $("arrow");
-  const nu = ui === "play" ? nearestUnlit(Infinity) : null;
+  const nu = ui === "play" ? nearestLantern(Infinity, needsAttention) : null;
   if (!nu) { show("arrow", false); return; }
   const [l, d] = nu;
   tmpV.set(l.pos[0], l.pos[1] + 2.5, l.pos[2]).project(camera);
@@ -1133,13 +1225,28 @@ function render(dt) {
   for (const l of snap.lanterns) {
     const o = lanternObjs[l.id], u = o.userData;
     o.position.set(l.pos[0], l.pos[1], l.pos[2]);
-    const f = l.lit ? 1 : l.deposited / TUNING.lantern_cost;
-    u.lamp.material = l.lit ? M.lampOn : M.lampOff;
+    const cost = l.ever_lit ? (TUNING.relight_cost || 5) : TUNING.lantern_cost;
+    const f = l.lit ? 1 : Math.min(1, l.deposited / cost);
+    const fuel = l.fuel ?? (l.lit ? fuelMax() : 0), low = isLow(l), safe = l.lit && !low;
+    // low fuel (< 30): lantern and fuel bar blink slowly at 1 Hz, in every palette (Ticket-03 Part 1/6)
+    const blinkOn = !low || (clock % 1) < 0.5;
+    u.low = low; u.blinkOn = blinkOn;
+    u.lamp.material = !l.lit ? M.lampOff : blinkOn ? M.lampOn : M.lampDim;
     u.core.material = l.lit || f > 0 ? M.core : M.coreOff;
-    u.core.scale.setScalar(l.lit ? 1.3 + 0.08 * Math.sin(clock * 5 + o.position.x) : 0.5 + 0.6 * f);
-    u.halo.material.opacity = l.lit ? 0.85 + 0.1 * Math.sin(clock * 3 + o.position.z) : 0.12 + 0.35 * f;   // faint beacon so unlit lanterns are findable
-    u.ground.material.opacity = l.lit ? 0.32 : 0;
-    u.ring.material.opacity = l.lit ? 0.5 : 0;
+    u.core.scale.setScalar(l.lit ? (blinkOn ? 1.3 + 0.08 * Math.sin(clock * 5 + o.position.x) : 0.7) : 0.5 + 0.6 * f);
+    u.shell.scale.y = l.lit ? 1 : 0.8;                    // unlit lantern: squashed 20% + torn paper (visible without colour)
+    u.tear.visible = !l.lit;
+    u.halo.material.opacity = l.lit ? (blinkOn ? 0.85 + 0.1 * Math.sin(clock * 3 + o.position.z) : 0.2) : 0.12 + 0.35 * f;   // faint beacon so unlit lanterns are findable
+    u.ground.material.opacity = safe ? 0.32 : l.lit ? (blinkOn ? 0.1 : 0.03) : 0;
+    u.ring.material.opacity = safe ? 0.5 : 0;               // the safe zone is gone once fuel < 30
+    u.bar.visible = l.lit;
+    if (l.lit) {
+      const fr = Math.max(0, Math.min(1, fuel / fuelMax()));
+      u.barFill.scale.x = Math.max(0.001, fr); u.barFill.position.x = -BAR_W / 2 + BAR_W * fr / 2;
+      u.barFill.material.color.setHex(low ? PAL.warn : 0xFFB347);
+      u.barFill.material.opacity = blinkOn ? 1 : 0.25; u.barBg.material.opacity = blinkOn ? 0.85 : 0.2; u.barMark.material.opacity = blinkOn ? 0.9 : 0.2;
+      u.bar.lookAt(camera.position);
+    }
     u.meter.visible = !l.lit && f > 0;
     if (u.meter.visible && f !== u.lastF) { u.meter.geometry.dispose(); u.meter.geometry = new THREE.RingGeometry(0.75, 0.95, 32, 1, Math.PI / 2, -Math.PI * 2 * f); u.lastF = f; }
     u.meter.lookAt(camera.position);
@@ -1168,15 +1275,39 @@ function render(dt) {
     const o = shadeObjs[s.id], u = o.userData, st = s.state;
     o.position.set(s.pos[0], s.pos[1] + 0.12 * Math.sin(clock * 4 + s.pos[0]), s.pos[2]);
     o.lookAt(p.pos[0], o.position.y, p.pos[2]);
-    let scale = 1, body = 0x120A1A, rim = 0x7A3CFF, rimA = 0.45, eye = 0xd9c6ff, op = 0.95;
+    // rim + eyes use the Bóng Mực accent (#7A3CFF, or #00B3FF in the colour-blind palette); chase eyes use the warning colour
+    let scale = 1, body = 0x120A1A, rim = PAL.accent, rimA = 0.45, eye = PAL.accent, op = 0.95;
     if (st === "spawning") { scale = 0.35 + 0.5 * Math.min(1, (clock - u.born)); rimA = 0.8; op = 0.6; }
-    else if (st === "chase") { rimA = 0.75 + 0.15 * Math.sin(clock * 10); eye = 0xFF5A5F; scale = 1.05; }
+    else if (st === "chase") { rimA = 0.75 + 0.15 * Math.sin(clock * 10); eye = PAL.warn; scale = 1.05; }
+    else if (st === "drain") { rimA = 0.6 + 0.25 * Math.sin(clock * 6); scale = 1.1 + 0.05 * Math.sin(clock * 9); }
     else if (st === "recoil") { scale = 0.85; rimA = 0.25; op = 0.6 + 0.3 * Math.sin(clock * 30); }
     else if (st === "stunned") { body = 0x3A3450; rim = 0x6d6690; rimA = 0.3; eye = 0x8a84a8; scale = 0.9 + 0.04 * Math.sin(clock * 20); }
     u.bodyMat.color.setHex(body); u.bodyMat.emissive.setHex(body); u.bodyMat.opacity = op;
     u.rimMat.color.setHex(rim); u.rimMat.opacity = rimA; u.eyeMat.color.setHex(eye);
     u.stars.visible = st === "stunned"; u.stars.rotation.y = clock * 4;
     o.scale.setScalar(scale);
+    // draining: a dark tendril reaches the lantern it is feeding on (nearest lit lantern, preferring one that is already low)
+    let feed = null;
+    if (st === "drain") {
+      let bd = Infinity;
+      for (const l of snap.lanterns) {
+        if (!l.lit) continue;
+        const d = Math.hypot(l.pos[0] - s.pos[0], l.pos[2] - s.pos[2]) - (isLow(l) ? 1 : 0);
+        if (d < bd) { bd = d; feed = l; }
+      }
+    }
+    u.tendril.visible = !!feed;
+    if (feed) {
+      const ax = o.position.x, ay = o.position.y + 0.3, az = o.position.z, bx = feed.pos[0], by = feed.pos[1] + LAMP_Y, bz = feed.pos[2] + LAMP_Z;
+      const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz) || 1, sx = -dz / len, sz = dx / len;       // sideways unit vector
+      const at = (t, out) => {
+        const arc = Math.sin(Math.PI * t), w = Math.sin(clock * 4 + t * 7) * 0.3 * arc;
+        return out.set(ax + dx * t + sx * w, ay + (by - ay) * t + 0.8 * arc, az + dz * t + sz * w);
+      };
+      u.beadMat.color.setHex(0x120A1A).lerp(tmpC.setHex(PAL.accent), 0.28);
+      u.beads.forEach((b, i) => { const t = i / (TEND_N - 1); at(t, b.position); b.scale.setScalar(0.17 - 0.1 * t); });
+      u.flow.forEach((sp, i) => { const t = 1 - ((clock * 0.9 + i / TEND_FLOW) % 1); at(t, sp.position); sp.material.opacity = 0.95 * Math.sin(Math.PI * t); });
+    }
     const sg = vGround(mapData, s.pos[0], s.pos[2]);
     u.shadow.visible = sg !== null; if (sg !== null) u.shadow.position.set(s.pos[0], sg + 0.03, s.pos[2]);
   }
