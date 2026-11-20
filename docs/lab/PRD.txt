@@ -1,1 +1,1 @@
-link_of_ticket1 = https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW#p1
+link_of_ticket2 = https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW#p2
