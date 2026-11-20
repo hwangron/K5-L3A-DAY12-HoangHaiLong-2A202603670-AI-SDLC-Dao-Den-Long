@@ -29,7 +29,7 @@ class ContractFile(unittest.TestCase):
         from game.sim import TUNING
         with open(os.path.join(ROOT, "game.contract.json"), encoding="utf-8") as f:
             c = json.load(f)
-        self.assertEqual(c["contract_version"], "1.2")  # Ticket-03: contract v1.2 (was 1.1 in Ticket-02)
+        self.assertEqual(c["contract_version"], "1.3")  # Ticket-04: contract v1.3 (was 1.2 in Ticket-03, 1.1 in Ticket-02)
         for k in ("team", "build_cmd", "run_cmd", "headless_cmd"):
             self.assertTrue(isinstance(c[k], str) and c[k])
         self.assertEqual(c["tuning"], TUNING)

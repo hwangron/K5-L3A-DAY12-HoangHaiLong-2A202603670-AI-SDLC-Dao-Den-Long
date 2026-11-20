@@ -55,7 +55,7 @@ class ContractV12(unittest.TestCase):
     def test_version_and_new_tuning_keys(self):
         from game.sim import TUNING
         c = self.load()
-        self.assertEqual(c["contract_version"], "1.2")
+        self.assertEqual(c["contract_version"], "1.3")   # Ticket-04: contract v1.3 (was 1.2); tuning is unchanged
         for k, v in self.NEW.items():
             self.assertIn(k, c["tuning"], k)
             self.assertEqual(c["tuning"][k], v, k)

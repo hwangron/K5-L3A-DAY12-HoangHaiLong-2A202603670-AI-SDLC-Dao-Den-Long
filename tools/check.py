@@ -3,6 +3,11 @@
 Scenario expectations (tests/scenarios/NAME.expect.json): `events` (exact list), `end` (exact last line) and, new in
 Phase 3, `snapshots` (partial checks of the snapshots written every 10 ticks, matched by lantern/shade id).
 
+Unit tests are auto-discovered from tests/test*.py. Since Phase 4 that includes tests/test_phase4.py (contract v1.3,
+benchstats, the 200-shade bench scene, soak.py, leaderboard HTTP API + --export-leaderboard); it starts serve.py and
+soak.py as subprocesses on temp files (own DDL_LEADERBOARD) and adds roughly 40 s. The headless scenario format checks
+below are unchanged by Phase 4 (the bench scene is not reachable from headless.py).
+
 python3 tools/check.py           # verify only (used by the Claude Stop hook and CI)
 python3 tools/check.py --save    # also write proof to docs/proof/<PHASE>/ (PHASE env, default phase-1)
 Exit 0 = all green, 2 = something failed (exit 2 also makes the Stop hook block the agent).
