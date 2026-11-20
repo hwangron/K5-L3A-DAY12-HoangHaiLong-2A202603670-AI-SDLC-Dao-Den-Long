@@ -1,4 +1,4 @@
-"""Headless runner - Test Contract v1.1.
+"""Headless runner - Test Contract v1.2.
 
 python3 headless.py --seed <int> --night 1|2|3 [--scenario f.json] [--inputs f.json]
                     --ticks <int> --out f.jsonl [--snapshot-every <int>]
@@ -54,7 +54,7 @@ def run(seed, scenario, frames, ticks, snapshot_every, write, night=1):
 
 
 def main(argv=None):
-    ap = _Parser(description="Dao Den Long headless (Test Contract v1.1)")
+    ap = _Parser(description="Dao Den Long headless (Test Contract v1.2)")
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--night", type=int, default=1)
     ap.add_argument("--scenario")

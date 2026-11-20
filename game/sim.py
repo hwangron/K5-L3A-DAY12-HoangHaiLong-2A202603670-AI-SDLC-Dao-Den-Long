@@ -1,4 +1,4 @@
-"""Dao Den Long - pure game logic (Ticket-02, Test Contract v1.1).
+"""Dao Den Long - pure game logic (Ticket-03 "Den can dau", Test Contract v1.2).
 
 No I/O, no rendering, no wall-clock. Shared by the headless CLI (headless.py)
 and the web build (web/index.html runs this exact file through Pyodide,
@@ -19,7 +19,7 @@ except ImportError:  # Pyodide: sim.py and maps.py side by side as top-level mod
 TICK_HZ = 60
 DT = 1.0 / TICK_HZ
 
-# Declared 1:1 in game.contract.json (a test checks they match). Ticket-02 Part 1.
+# Declared 1:1 in game.contract.json (a test checks they match). Ticket-02 Part 1 + Ticket-03.
 TUNING = {
     "player_speed": 6.0,
     "carry_capacity": 10,
@@ -29,9 +29,9 @@ TUNING = {
     "interact_radius": 2.0,
     "pulse_cost": 3,
     "pulse_radius": 5.0,
-    "night1_duration_s": 300,
-    "night2_duration_s": 330,
-    "night3_duration_s": 360,
+    "night1_duration_s": 240,       # Ticket-03: was 300/330/360
+    "night2_duration_s": 270,
+    "night3_duration_s": 300,
     "flames": 3,
     "invuln_s": 1.5,
     "hit_drop_ratio": 0.5,
@@ -45,12 +45,24 @@ TUNING = {
     "dash_speed": 14.0,
     "dash_duration_s": 0.2,
     "dash_cooldown_s": 1.5,
+    # Ticket-03 lantern fuel (stored internally in integer units = fuel x 60)
+    "fuel_max": 100,
+    "fuel_decay_per_s": 1.0,
+    "fuel_per_mote": 10,
+    "relight_cost": 5,
+    "win_ratio": 0.6,
+    "drain_per_s": 5,
+    "low_fuel_threshold": 30,
+    "capacity_max": 20,
     "score": {
-        "per_mote": 10,
-        "per_lantern": 100,
+        "per_mote": 5,              # Ticket-03: every mote put into a lantern (light, relight, refuel)
+        "per_lantern": 100,         # first light
         "per_stun": 5,
-        "per_second_left": 2,
-        "per_flame_left": 50,
+        "per_second_left": 0,       # Ticket-03: time bonus removed
+        "per_flame_left": 50,       # dawn bonus (win only)
+        "per_relight": 40,
+        "per_drain_stun": 15,       # pulse hit on a shade that was draining (total, not extra)
+        "per_lit_lantern_dawn": 50,  # + floor(fuel) per lit lantern at dawn (win only)
     },
 }
 
@@ -82,6 +94,12 @@ SHADE_DETECT = 12.0
 SHADE_LOSE = 18.0
 SHADE_WANDER_SPEED = 1.5
 SHADE_WANDER_R = 6.0
+FUEL_UNIT = TICK_HZ         # fuel is stored as integer units = fuel x 60 (1 fuel/s = 1 unit/tick)
+CAPACITY_PER_LIGHT = 2      # carry capacity grows by 2 per successful light
+LANTERN_APPROACH_M = 4.0    # wander: walk to an unlit lantern until this close, then circle it
+DRAIN_RANGE = 2.0           # a wandering shade this close (XZ) to a weak lit lantern starts draining
+DRAIN_ALERT = 6.0           # a draining shade turns to chase when the player gets this close
+DRAIN_EVENT_TICKS = 60      # fuel_drain event every 60 drained ticks per shade
 WANDER_RETARGET_TICKS = 180
 SPAWN_MIN_DIST = 15.0
 RECOIL_TICKS = 60
@@ -105,7 +123,7 @@ WIND_WARN_TICKS = 120
 WIND_SPEED = 2.0
 
 BUTTONS = ("jump", "interact", "pulse", "dash", "pause")
-SHADE_STATES = ("spawning", "wander", "chase", "recoil", "stunned")
+SHADE_STATES = ("spawning", "wander", "chase", "recoil", "stunned", "drain")
 DRIFTER_STATES = ("idle", "chase", "flee")
 # Radius checks use "<= r + EPS": 60 steps of 0.1 m sum to 5.9999999, not 6.0.
 EPS = 1e-6
@@ -117,6 +135,11 @@ class ScenarioError(ValueError):
 
 def r3(x):
     v = round(float(x), 3)
+    return 0.0 if v == 0 else v
+
+
+def r1(x):
+    v = round(float(x), 1)
     return 0.0 if v == 0 else v
 
 
@@ -232,8 +255,10 @@ class Game:
                        "invuln": 0, "dash_cd": 0, "pulse_cd": 0, "charm": 0,
                        "dash": 0, "dash_dir": [0.0, 1.0], "facing": [0.0, 1.0],
                        "launched": False, "launch_v": [0.0, 0.0],
-                       "respawning": False, "respawn": 0}
-        self.lanterns = [{"id": f"L{i + 1}", "pos": p, "lit": False, "deposited": 0}
+                       "respawning": False, "respawn": 0, "successful_lights": 0}
+        # units = fuel x 60 (integer); 0 while unlit. ever_lit survives going out (relight cost 5).
+        self.lanterns = [{"id": f"L{i + 1}", "pos": p, "lit": False, "deposited": 0,
+                          "units": 0, "ever_lit": False, "relit_count": 0}
                          for i, p in enumerate(maps.lanterns(night))]
         self.charms = [{"id": cid, "pos": pos, "available": True, "respawn": 0}
                        for cid, pos in maps.charms(night)]
@@ -284,7 +309,8 @@ class Game:
                 p["grounded"] = g is not None and p["pos"][1] <= g + EPS
             for key, field in (("carried", "carried"), ("flames", "flames"),
                                ("invuln_ticks", "invuln"), ("dash_cd_ticks", "dash_cd"),
-                               ("pulse_cd_ticks", "pulse_cd"), ("charm_ticks", "charm")):
+                               ("pulse_cd_ticks", "pulse_cd"), ("charm_ticks", "charm"),
+                               ("successful_lights", "successful_lights")):
                 if key in sp:
                     p[field] = _int(sp[key], f"player.{key}")
         if "lanterns" in sc:
@@ -295,8 +321,26 @@ class Game:
                 tgt = by_id[l["id"]]
                 if "pos" in l:
                     tgt["pos"] = _vec3(l["pos"], f"lanterns[{i}].pos")
+                fuel_u = None
+                if "fuel" in l:
+                    f = l["fuel"]
+                    if not _is_num(f) or f < 0 or f > T["fuel_max"]:
+                        raise ScenarioError(f"lanterns[{i}].fuel must be a number in 0..{T['fuel_max']}")
+                    fuel_u = int(round(f * FUEL_UNIT))
                 if "lit" in l:
                     tgt["lit"] = _bool(l["lit"], f"lanterns[{i}].lit")
+                elif fuel_u:
+                    tgt["lit"] = True   # a fuel > 0 without "lit" can only mean a burning lantern
+                if "ever_lit" in l:
+                    tgt["ever_lit"] = _bool(l["ever_lit"], f"lanterns[{i}].ever_lit")
+                if "relit_count" in l:
+                    tgt["relit_count"] = _int(l["relit_count"], f"lanterns[{i}].relit_count")
+                if tgt["lit"]:
+                    # lit: true without fuel -> fuel_max; a lit lantern has always been lit
+                    tgt["units"] = self._fuel_max_u() if fuel_u is None else fuel_u
+                    tgt["ever_lit"] = True
+                else:
+                    tgt["units"] = 0
                 if "deposited" in l:
                     tgt["deposited"] = _int(l["deposited"], f"lanterns[{i}].deposited")
                 elif tgt["lit"]:
@@ -345,6 +389,18 @@ class Game:
                 sh = self._make_shade(sid, pos, state, left)
                 if state == "recoil":
                     sh["recoil_dir"] = self._away_from_player(pos)
+                tid = s.get("target_lantern_id")
+                if tid is not None and not isinstance(tid, str):
+                    raise ScenarioError(f"shades[{i}].target_lantern_id must be a lantern id string")
+                tl = self._lantern(tid) if tid is not None else None
+                weak = tl is not None and self._is_weak(tl)
+                if state == "drain":
+                    # drain target: the given weak lit lantern, else the nearest one
+                    if not weak:
+                        tl = self._weak_lantern(pos)
+                    sh["tl"] = None if tl is None else tl["id"]
+                elif tl is not None and (weak or not tl["lit"]):
+                    sh["tl0"] = tl["id"]    # initial wander target (only if the lantern is a valid one)
                 self.shades.append(sh)
         if "drifters" in sc:
             drifters = _list(sc["drifters"], "drifters")
@@ -423,7 +479,54 @@ class Game:
         return {"id": sid, "pos": pos, "home": [pos[0], pos[2]], "state": state, "left": left,
                 "push": 0, "push_dir": [1.0, 0.0], "recoil_dir": [1.0, 0.0],
                 "expel": 0, "expel_dir": [1.0, 0.0], "expel_step": 0.0,
-                "target": None, "wander": 0}
+                "target": None, "wander": 0, "wc": None,
+                "tl": None,       # lantern being drained (state "drain")
+                "tl0": None,      # scenario target_lantern_id, used once as the first wander target
+                "drain_n": 0}     # ticks drained so far (fuel_drain event every 60)
+
+    # ---------------------------------------------------------------- lantern helpers
+    @staticmethod
+    def _fuel_max_u():
+        return int(round(TUNING["fuel_max"] * FUEL_UNIT))
+
+    @staticmethod
+    def _low_fuel_u():
+        return TUNING["low_fuel_threshold"] * FUEL_UNIT
+
+    @staticmethod
+    def _num(x):
+        """Per-tick units from a per-second tuning value (1 fuel/s = 1 unit/tick); int when whole."""
+        return int(x) if float(x).is_integer() else float(x)
+
+    def _lantern(self, lid):
+        for l in self.lanterns:
+            if l["id"] == lid:
+                return l
+        return None
+
+    def _is_weak(self, l):
+        """Lit with fuel < 30: no safe zone, shades go for it."""
+        return l["lit"] and l["units"] < self._low_fuel_u()
+
+    def _has_safe_zone(self, l):
+        return l["lit"] and l["units"] >= self._low_fuel_u()   # exactly 30 still counts
+
+    def _nearest_lantern(self, pos, pred):
+        best = None
+        for l in self.lanterns:
+            if pred(l):
+                key = (dist_xz(pos, l["pos"]), _id_key(l["id"]))
+                if best is None or key < best[0]:
+                    best = (key, l)
+        return None if best is None else best[1]
+
+    def _weak_lantern(self, pos):
+        return self._nearest_lantern(pos, self._is_weak)
+
+    def capacity(self):
+        T = TUNING
+        return min(T["capacity_max"],
+                   T["carry_capacity"] + CAPACITY_PER_LIGHT * self.player["successful_lights"])
 
     @staticmethod
     def _make_drifter(did, pos):
@@ -452,8 +555,12 @@ class Game:
     def _end(self, result, reason):
         self.state = result
         if result == "won":
+            # Dawn bonus (win only): each lit lantern 50 + floor(fuel), each flame 50, no time bonus
             S = TUNING["score"]
             self.score += S["per_second_left"] * (max(0, self.time_left_ticks) // TICK_HZ)
+            for l in self.lanterns:
+                if l["lit"]:
+                    self.score += S["per_lit_lantern_dawn"] + int(l["units"] // FUEL_UNIT)
             self.score += S["per_flame_left"] * self.player["flames"]
         self._emit("game_over", {"result": result, "reason": reason})
 
@@ -532,6 +639,35 @@ class Game:
                     c["respawn"] -= 1
                 if c["respawn"] == 0:
                     c["available"] = True
+        self._burn_fuel()
+
+    def _burn_fuel(self):
+        """Step 2 (Ticket-03): every lit lantern loses 1 unit (1 fuel/s) plus 5 units (5 fuel/s) per
+        shade that was draining it on the previous tick; right after, lanterns with fuel <= 0 go out."""
+        T = TUNING
+        decay = self._num(T["fuel_decay_per_s"])
+        drain = self._num(T["drain_per_s"])
+        drainers = {}
+        for s in sorted(self.shades, key=lambda s: _id_key(s["id"])):
+            if s["state"] == "drain" and s["tl"] is not None:
+                drainers.setdefault(s["tl"], []).append(s)
+        for l in self.lanterns:
+            if not l["lit"]:
+                continue
+            ds = drainers.get(l["id"], ())
+            l["units"] -= decay + drain * len(ds)
+            for s in ds:
+                s["drain_n"] += 1
+                if s["drain_n"] % DRAIN_EVENT_TICKS == 0:
+                    self._emit("fuel_drain", {"lantern_id": l["id"], "shade_id": s["id"],
+                                              "fuel": r1(max(0, l["units"]) / FUEL_UNIT)})
+        for l in self.lanterns:
+            if l["lit"] and l["units"] <= 0:
+                l["lit"] = False
+                l["units"] = 0
+                l["deposited"] = 0
+                l["ever_lit"] = True
+                self._emit("lantern_out", {"lantern_id": l["id"]})
 
     # 3 ---------------------------------------------------------- player
     def _try_step(self, x, z, dx, dz, y):
@@ -674,7 +810,7 @@ class Game:
         p = self.player
         if p["respawning"]:
             return
-        cap = TUNING["carry_capacity"]
+        cap = self.capacity()
         kept = []
         for m in self.motes:
             if p["carried"] < cap and self._reach(m["pos"]):
@@ -697,26 +833,55 @@ class Game:
         pos = p["pos"]
         if not edge["interact"] or p["carried"] <= 0 or p["respawning"]:
             return
+        S = T["score"]
+        # Candidates: an unlit lantern, or a lit one that can still take fuel (used > 0).
         cands = [l for l in self.lanterns
-                 if not l["lit"] and dist_xz(pos, l["pos"]) <= T["interact_radius"] + EPS]
+                 if dist_xz(pos, l["pos"]) <= T["interact_radius"] + EPS
+                 and (not l["lit"] or self._refuel_amount(l) > 0)]
         if not cands:
             return
         l = min(cands, key=lambda l: (dist_xz(pos, l["pos"]), _id_key(l["id"])))
-        amount = min(p["carried"], T["lantern_cost"] - l["deposited"])
+        if l["lit"]:
+            # Refuel: used = min(carried, ceil((100 - fuel) / 10)), fuel += 10 per mote, capped at 100
+            used = self._refuel_amount(l)
+            p["carried"] -= used
+            l["units"] = min(self._fuel_max_u(), l["units"] + used * T["fuel_per_mote"] * FUEL_UNIT)
+            self.score += S["per_mote"] * used
+            self._emit("refuel", {"lantern_id": l["id"], "amount": used,
+                                  "fuel": r1(l["units"] / FUEL_UNIT)})
+            return
+        cost = T["relight_cost"] if l["ever_lit"] else T["lantern_cost"]
+        amount = min(p["carried"], cost - l["deposited"])
         if amount > 0:
             p["carried"] -= amount
             l["deposited"] += amount
-            self.score += T["score"]["per_mote"] * amount
+            self.score += S["per_mote"] * amount
             self._emit("deposit", {"lantern_id": l["id"], "amount": amount, "deposited": l["deposited"]})
-        if l["deposited"] >= T["lantern_cost"]:
+        if l["deposited"] >= cost:
+            relight = l["ever_lit"]
             l["lit"] = True
-            self.score += T["score"]["per_lantern"]
-            self._emit("lantern_lit", {"lantern_id": l["id"]})
+            l["units"] = self._fuel_max_u()
+            l["ever_lit"] = True
+            p["successful_lights"] += 1        # capacity grows (relights count, scenario-placed lamps don't)
+            if relight:
+                l["relit_count"] += 1
+                self.score += S["per_relight"]
+            else:
+                self.score += S["per_lantern"]
+            self._emit("lantern_lit", {"lantern_id": l["id"], "relight": relight})
+
+    def _refuel_amount(self, l):
+        """Motes a lit lantern would take now: min(carried, ceil((fuel_max - fuel) / fuel_per_mote))."""
+        per = TUNING["fuel_per_mote"] * FUEL_UNIT
+        missing = self._fuel_max_u() - l["units"]
+        if missing <= 0:
+            return 0
+        return min(self.player["carried"], int(math.ceil(round(missing / per, 9))))
 
     # 6 ---------------------------------------------------------- safe zones
     def _safe_zones(self):
         R = TUNING["safe_radius"]
-        lit = [l for l in self.lanterns if l["lit"]]
+        lit = [l for l in self.lanterns if self._has_safe_zone(l)]   # lit and fuel >= 30
         for s in self.shades:
             if s["expel"] == 0:
                 for l in lit:
@@ -726,6 +891,8 @@ class Game:
                         s["expel"] = EXPEL_TICKS
                         s["expel_dir"] = [dx / d0, dz / d0] if d0 > 1e-9 else [1.0, 0.0]
                         s["expel_step"] = max((R - d0) / EXPEL_TICKS, 0.0)
+                        if s["state"] == "drain":   # pushed out of the light -> back to wandering
+                            s["state"], s["tl"], s["target"] = "wander", None, None
                         break
             if s["expel"] > 0:
                 s["pos"][0] += s["expel_dir"][0] * s["expel_step"]
@@ -735,7 +902,7 @@ class Game:
     def _keep_out_of_light(self, s):
         R = TUNING["safe_radius"]
         for l in self.lanterns:
-            if not l["lit"]:
+            if not self._has_safe_zone(l):
                 continue
             dx, dz = s["pos"][0] - l["pos"][0], s["pos"][2] - l["pos"][2]
             dd = math.hypot(dx, dz)
@@ -784,12 +951,14 @@ class Game:
         ids = []
         for s in sorted(self.shades, key=lambda s: _id_key(s["id"])):
             if in_range(s):
+                # +5 per shade, +15 in total if it was draining a lantern right before the hit
+                self.score += T["score"]["per_drain_stun" if s["state"] == "drain" else "per_stun"]
                 s["state"] = "stunned"
+                s["tl"] = None
                 s["left"] = _ticks(T["pulse_stun_s"])
                 s["push"] = PUSH_TICKS
                 s["push_dir"] = self._away_from_player(s["pos"])
                 ids.append(s["id"])
-                self.score += T["score"]["per_stun"]
         for d in sorted(self.drifters, key=lambda d: _id_key(d["id"])):
             if not in_range(d):
                 continue
@@ -808,11 +977,13 @@ class Game:
         self._emit("pulse", {"stunned_ids": ids})
 
     # 8 ---------------------------------------------------------- shades / drifters
-    def _pick_target(self, e, radius):
+    def _pick_target(self, e, radius, center=None):
+        cx, cz = (e["home"][0], e["home"][1]) if center is None else center
         a = self.rng.uniform(0.0, 2.0 * math.pi)
         r = radius * math.sqrt(self.rng.random())
-        e["target"] = [e["home"][0] + r * math.cos(a), e["home"][1] + r * math.sin(a)]
+        e["target"] = [cx + r * math.cos(a), cz + r * math.sin(a)]
         e["wander"] = WANDER_RETARGET_TICKS
+        e["wc"] = center
 
     @staticmethod
     def _toward(e, tx, tz, speed):
@@ -824,12 +995,42 @@ class Game:
             e["pos"][2] += dz * k
         return d
 
-    def _wander(self, e, radius, speed):
+    def _wander(self, e, radius, speed, center=None):
+        """Roam at `speed` toward a random point within `radius` of `center` (default: the entity's
+        home). A new point is drawn on arrival, every 180 ticks, or when the centre changes."""
         t = e["target"]
-        if t is None or e["wander"] == 0 or math.hypot(t[0] - e["pos"][0], t[1] - e["pos"][2]) < 1e-9:
-            self._pick_target(e, radius)
+        if (t is None or e["wander"] == 0 or e.get("wc") != center
+                or math.hypot(t[0] - e["pos"][0], t[1] - e["pos"][2]) < 1e-9):
+            self._pick_target(e, radius, center)
             t = e["target"]
         self._toward(e, t[0], t[1], speed)
+
+    def _shade_wander(self, s):
+        """Ticket-03 wander: head for the nearest weak lit lantern (and drain it once within 2 m);
+        else the nearest unlit lantern (walk to 4 m, then roam within 6 m of it); else roam at home."""
+        pos = s["pos"]
+        tl0, s["tl0"] = s["tl0"], None      # scenario target_lantern_id: only for the first choice
+        lant = self._lantern(tl0) if tl0 is not None else None
+        if lant is not None and not (self._is_weak(lant) or not lant["lit"]):
+            lant = None
+        if lant is None:
+            lant = self._weak_lantern(pos)
+        if lant is not None and lant["lit"]:
+            if dist_xz(pos, lant["pos"]) <= DRAIN_RANGE + EPS:
+                s["state"], s["tl"], s["drain_n"], s["target"] = "drain", lant["id"], 0, None
+                return
+            self._toward(s, lant["pos"][0], lant["pos"][2], SHADE_WANDER_SPEED)
+            return
+        if lant is None:
+            lant = self._nearest_lantern(pos, lambda l: not l["lit"])
+        if lant is None:
+            self._wander(s, SHADE_WANDER_R, SHADE_WANDER_SPEED)
+            return
+        c = (lant["pos"][0], lant["pos"][2])
+        if s["wc"] != c and dist_xz(pos, lant["pos"]) > LANTERN_APPROACH_M + EPS:
+            self._toward(s, c[0], c[1], SHADE_WANDER_SPEED)     # still on the way
+        else:
+            self._wander(s, SHADE_WANDER_R, SHADE_WANDER_SPEED, c)   # circle the lantern
 
     def _move_shades(self):
         ppos = self.player["pos"]
@@ -854,9 +1055,21 @@ class Game:
                     if st == "recoil":
                         self._recoil_step(s)
                     continue
-                st = s["state"] = "chase" if dist_xz(ppos, s["pos"]) <= SHADE_LOSE + EPS else "wander"
+                if st == "stunned":     # Ticket-03: stun always ends in wander
+                    st = s["state"] = "wander"
+                else:                   # recoil ends as in Phase 2
+                    st = s["state"] = "chase" if dist_xz(ppos, s["pos"]) <= SHADE_LOSE + EPS else "wander"
                 s["target"] = None
             d = dist_xz(ppos, s["pos"])
+            if st == "drain":
+                lant = self._lantern(s["tl"]) if s["tl"] is not None else None
+                if d <= DRAIN_ALERT + EPS:
+                    st = s["state"] = "chase"
+                elif (lant is None or not self._is_weak(lant)
+                      or dist_xz(s["pos"], lant["pos"]) > DRAIN_RANGE + EPS):
+                    st = s["state"] = "wander"      # lantern out / refuelled to >= 30 / too far
+                if st != "drain":
+                    s["tl"], s["target"] = None, None
             if st == "wander" and d <= SHADE_DETECT + EPS:
                 st = s["state"] = "chase"
             elif st == "chase" and d > SHADE_LOSE + EPS:
@@ -864,8 +1077,8 @@ class Game:
                 s["target"] = None
             if st == "chase":
                 self._toward(s, ppos[0], ppos[2], self.shade_speed)
-            else:
-                self._wander(s, SHADE_WANDER_R, SHADE_WANDER_SPEED)
+            elif st == "wander":
+                self._shade_wander(s)       # may switch to "drain" (and then stands still)
             self._fix_shade(s)
 
     def _recoil_step(self, s):
@@ -917,7 +1130,7 @@ class Game:
         if p["invuln"] > 0:
             return
         for s in sorted(self.shades, key=lambda s: _id_key(s["id"])):
-            if (s["state"] in ("chase", "wander") and s["expel"] == 0
+            if (s["state"] in ("chase", "wander", "drain") and s["expel"] == 0
                     and dist_xz(pos, s["pos"]) <= T["shade_hit_radius"] + EPS
                     and abs(pos[1] - s["pos"][1]) <= HIT_DY + EPS):
                 p["flames"] = max(0, p["flames"] - 1)
@@ -981,10 +1194,13 @@ class Game:
     def _evaluate(self):
         if self.player["flames"] <= 0:
             self._end("lost", "no_flames")
-        elif all(l["lit"] for l in self.lanterns):
-            self._end("won", "all_lit")
-        elif self.time_left_ticks <= 0:
-            self._end("lost", "dawn")
+        elif self.time_left_ticks <= 0:     # dawn: no early win any more
+            lit = sum(1 for l in self.lanterns if l["lit"])
+            needed = math.ceil(round(TUNING["win_ratio"] * len(self.lanterns), 9))
+            if lit >= needed:
+                self._end("won", "dawn_survived")
+            else:
+                self._end("lost", "dawn")
 
     # ------------------------------------------------------------- snapshot
     def snapshot(self):
@@ -1000,10 +1216,14 @@ class Game:
             "wind": {"active": self.wind_ticks > 0, "dir_deg": r3(self.wind_dir)},
             "player": {"pos": [r3(c) for c in p["pos"]], "vel": [r3(c) for c in p["vel"]],
                        "grounded": p["grounded"], "flames": p["flames"], "carried": p["carried"],
+                       "capacity": self.capacity(),
                        "invuln": p["invuln"] > 0, "dash_cd_s": r3(p["dash_cd"] / TICK_HZ),
                        "pulse_cd_s": r3(p["pulse_cd"] / TICK_HZ), "charm_s": r3(p["charm"] / TICK_HZ)},
             "lanterns": [{"id": l["id"], "pos": [r3(c) for c in l["pos"]], "lit": l["lit"],
-                          "deposited": l["deposited"]} for l in self.lanterns],
+                          "deposited": l["deposited"],
+                          "fuel": r1(l["units"] / FUEL_UNIT) if l["lit"] else 0.0,
+                          "ever_lit": l["ever_lit"], "relit_count": l["relit_count"]}
+                         for l in self.lanterns],
             "shades": [{"id": s["id"], "pos": [r3(c) for c in s["pos"]], "state": s["state"]}
                        for s in self.shades],
             "motes_active": len(self.motes),
