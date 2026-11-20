@@ -21,11 +21,12 @@ Công cụ: **Claude Code** (VS Code extension), model Claude Opus 5.5. Phase 1:
 | E3 | `tools/check.py`: không tìm được test (thư mục `tests` không phải package); `relpath` lỗi khi khác ổ đĩa; chuỗi `\n` bị chèn hỏng | Chạy script, đọc traceback | Sửa từng lỗi. Script bị crash cũng trả mã 2 để hook vẫn chặn được |
 | E4 | Bờ đảo kéo vị trí scenario đặt ngoài 30 m vào trong. Chấp nhận file scenario `[]` | **Subagent review độc lập** thử phá bằng kịch bản biên | Sửa code, thêm 2 test hồi quy. Bài học: người review khác người viết bắt được lỗi người viết không nghĩ tới |
 
-### Token và chi phí (ước tính)
+### Token và chi phí
 
-| Phase | Ước tính | Ghi chú |
+| Agent | Token | Nguồn |
 |---|---|---|
-| 1 | Agent chính: khoảng 350k token vào (phần lớn là cache), 60k token ra. Subagent review: **67.7k token** (số đo thật từ harness), 7 lần gọi công cụ | Số chính xác: gõ `/cost` trong Claude Code rồi điền vào đây |
+| reviewer | 67,687 (7 lần gọi công cụ) | Số đo thật từ harness |
+| agent chính | Xem bảng tổng hợp cuối file | Ước tính |
 
 Cách tiết kiệm:
 - Đọc PRD **một lần** và lưu bản text gọn (10 KB thay vì trang HTML 180 KB).
@@ -61,9 +62,26 @@ Cách tiết kiệm:
 | web | 176,279 | Số đo thật |
 | reviewer | 121,803 | Số đo thật. 5 mutation test + nhiều kịch bản biên |
 | docs | 127,310 | Số đo thật |
-| điều phối viên | _ước tính, sẽ thay bằng số từ `/cost`_ | Đọc ticket, viết design, phân xử |
+| điều phối viên | Xem bảng tổng hợp cuối file | Ước tính. Đọc ticket, viết design, phân xử |
 
 Cách tiết kiệm:
 - Viết `phase-2-design.md` một lần, mọi subagent đọc chung thay vì mỗi agent tự suy luận lại ticket.
 - Sở hữu file rõ ràng: không có hai agent sửa cùng một file, nên không phải hòa trộn hay chạy lại.
 - Chạy nặng (`check.py --save`, `web_check.py`, đo hiệu năng) chỉ một lần cho bằng chứng.
+
+## Tổng hợp token cả 2 phase
+
+| Phase | Subagent (số đo thật) | Agent chính (ước tính) |
+|---|---|---|
+| 1 | 67,687 (1 reviewer) | Phần lớn công việc Phase 1 do agent chính làm |
+| 2 | 838,071 (core 164,554 · test 248,125 · web 176,279 · reviewer 121,803 · docs 127,310) | Chủ yếu điều phối |
+| **Tổng** | **905,758** | **khoảng 630,000** |
+
+- **Số đo thật:** con số `subagent_tokens` mà harness Claude Code báo khi mỗi subagent kết thúc.
+- **Cách ước tính agent chính:** `/usage` cho thấy subagent loại `general-purpose` chiếm **59%** lượng dùng. Nếu 905,758 token là 59% thì phần còn lại (41%) vào khoảng 905,758 × 41/59 ≈ **630k**. Cả dự án vì thế vào khoảng **1.5 triệu token**. Đây là ước tính: `/usage` đo theo mức dùng, không đếm đúng từng token.
+- Phần lớn các token này là ngữ cảnh đọc lại từ cache (rẻ hơn token thường).
+
+### Bài học về token
+- **Mọi subagent đều chạy trên Opus 5.5**, vì khi gọi không chỉ định model nên chúng dùng model của phiên chính. Việc của chúng (viết code theo design có sẵn, viết test, viết tài liệu, review) dùng **Sonnet** là đủ. Phần cần suy luận nặng (đọc ticket, viết design, phân xử) giữ ở agent chính.
+- **Agent test tốn nhất** (248k), vì phải tính tay kỳ vọng cho 108 test và 23 kịch bản. Đáng tốn, vì chính các test độc lập này bắt được lỗi E5.
+- **Phase 2 tốn gấp khoảng 12 lần Phase 1 cho subagent:** 5 agent, mỗi agent phải tự đọc lại ticket, design và code. Lần sau sẽ ghép docs vào reviewer và chuyển subagent sang Sonnet.
