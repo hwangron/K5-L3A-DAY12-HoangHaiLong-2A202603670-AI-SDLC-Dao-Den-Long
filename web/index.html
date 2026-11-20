@@ -6,85 +6,119 @@
 <title>Đảo Đèn Lồng</title>
 <style>
   /* Ticket-02 palette (Part 3): UI danger #FF5A5F, UI text #F5F1E6, gold/score #F2C14E.
-     Ticket-03 colour-blind palette (body.cb): UI warning #FFFFFF + a warning icon, Bóng Mực rim/eyes #00B3FF */
+     Ticket-03 colour-blind palette (body.cb): UI warning #FFFFFF + a warning icon, Bóng Mực rim/eyes #00B3FF.
+     Ticket-04 accessibility: every UI font size is calc(Npx * var(--ts)) with N >= 18, so the UI text is >= 18 px at
+     1280x720 and the "large text" option (body.large, --ts: 1.25) scales all of it; body.reduced = reduced motion. */
   :root {
     --sky: #0E1430; --mist: #1B2350; --text: #F5F1E6; --danger: #FF5A5F; --danger-rgb: 255,90,95; --gold: #F2C14E;
     --lit: #FFB347; --core: #FFE9B0; --off: #5B5F6E; --mote: #FFF6C2; --halo: #FFE58A; --scarf: #C8102E;
-    --panel: rgba(14, 20, 48, 0.78); --panel2: rgba(27, 35, 80, 0.92);
+    --panel: rgba(14, 20, 48, 0.78); --panel2: rgba(27, 35, 80, 0.94); --ts: 1;
   }
   body.cb { --danger: #FFFFFF; --danger-rgb: 255,255,255; }
-  html, body { margin: 0; height: 100%; background: var(--sky); color: var(--text); font-family: system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
+  body.large { --ts: 1.25; }
+  html, body { margin: 0; height: 100%; background: var(--sky); color: var(--text); font-family: system-ui, "Segoe UI", Roboto, sans-serif; font-size: calc(18px * var(--ts)); overflow: hidden; user-select: none; }
   canvas { display: block; }
   .hidden { display: none !important; }
-  kbd { background: #26306a; border-radius: 4px; padding: 1px 6px; border: 1px solid #3c4890; font-size: 12px; font-family: inherit; }
+  /* benchmark page (?bench=1): the canvas is a fixed 1280x720 and nothing else is drawn */
+  body.bench canvas { position: fixed; left: 0; top: 0; }
+  body.bench .overlay, body.bench #hud, body.bench #fps { display: none !important; }
+  kbd { background: #26306a; border-radius: 4px; padding: 0 7px; border: 1px solid #3c4890; font-size: calc(18px * var(--ts)); font-family: inherit; }
 
   /* ---------------- overlays */
   .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(8, 11, 30, .72); z-index: 20; }
-  .card { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 24px 28px; background: var(--panel2); border: 1px solid rgba(242,193,78,.35); border-radius: 14px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
-  .card h1 { color: var(--lit); margin: 0 0 6px; font-size: 32px; letter-spacing: .5px; }
-  .card h2 { color: var(--gold); margin: 0 0 10px; font-size: 18px; font-weight: 600; }
-  .card p { line-height: 1.55; margin: 10px 0; }
-  .card .quote { font-style: italic; background: rgba(14,20,48,.6); border-left: 3px solid var(--lit); padding: 10px 14px; text-align: left; border-radius: 6px; }
+  .card { width: min(660px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 18px 28px; background: var(--panel2); border: 1px solid rgba(242,193,78,.35); border-radius: 14px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .card.wide { width: min(980px, calc(100vw - 32px)); }
+  .card.mid { width: min(780px, calc(100vw - 32px)); }
+  #controls-help td:first-child { white-space: nowrap; }
+  .card h1 { color: var(--lit); margin: 0 0 6px; font-size: calc(34px * var(--ts)); letter-spacing: .5px; }
+  .card h2 { color: var(--gold); margin: 0 0 8px; font-size: calc(20px * var(--ts)); font-weight: 600; }
+  .card p { line-height: 1.4; margin: 8px 0; }
+  .card .quote { font-style: italic; background: rgba(14,20,48,.6); border-left: 3px solid var(--lit); padding: 8px 14px; text-align: left; border-radius: 6px; }
   .card .who { color: var(--gold); font-style: normal; font-weight: 600; }
-  .card table { margin: 8px auto; text-align: left; font-size: 13px; border-spacing: 10px 3px; }
-  .btns { display: flex; flex-direction: column; gap: 9px; align-items: center; margin-top: 14px; }
-  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .btn { font: inherit; font-size: 16px; font-weight: 600; color: var(--text); background: #26306a; border: 1px solid #3c4890; border-radius: 22px; padding: 8px 24px; cursor: pointer; min-width: 200px; }
-  .btn.small { min-width: 0; padding: 6px 14px; font-size: 14px; }
+  .card table { margin: 6px auto; text-align: left; font-size: calc(18px * var(--ts)); border-spacing: 10px 2px; }
+  .btns { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 12px; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .btn { font: inherit; font-size: calc(18px * var(--ts)); font-weight: 600; color: var(--text); background: #26306a; border: 1px solid #3c4890; border-radius: 22px; padding: 7px 24px; cursor: pointer; min-width: 200px; }
+  .btn.small { min-width: 0; padding: 5px 16px; }
   .btn.primary { color: #1a1430; background: var(--lit); border-color: var(--lit); }
+  .btn:disabled { opacity: .55; cursor: default; }
   .btn:hover, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-  .hint { font-size: 12px; opacity: .65; }
-  .big { font-size: 40px; color: var(--gold); font-weight: 700; margin: 6px 0; }
-  .setting { display: grid; grid-template-columns: 130px 1fr 48px; gap: 10px; align-items: center; margin: 12px 0; text-align: left; }
-  .setting input { width: 100%; accent-color: var(--lit); }
+  .hint { font-size: calc(18px * var(--ts)); opacity: .78; }
+  .big { font-size: calc(40px * var(--ts)); color: var(--gold); font-weight: 700; margin: 4px 0; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 28px; text-align: left; }
+  .cols h2 { text-align: left; }
+  .setting { display: grid; grid-template-columns: 170px 1fr 60px; gap: 10px; align-items: center; margin: 8px 0; text-align: left; }
+  .setting input[type=range] { width: 100%; accent-color: var(--lit); }
   .setting.toggle { grid-template-columns: 1fr 28px; }
-  .setting.toggle input { width: 22px; height: 22px; margin: 0; justify-self: end; }
-  .setting.toggle small { grid-column: 1 / -1; opacity: .65; font-size: 12px; margin-top: -6px; }
+  .setting.toggle input { width: 24px; height: 24px; margin: 0; justify-self: end; accent-color: var(--lit); }
+  .setting.toggle small { grid-column: 1 / -1; opacity: .78; font-size: calc(18px * var(--ts)); margin-top: -4px; }
+  #keymap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .keyrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .keyrow .btn.small { min-width: 5.2em; padding: 3px 10px; }
+  .keyrow.listening .btn { background: var(--lit); color: #1a1430; }
+  .formmsg { min-height: 1.4em; margin: 6px 0; color: var(--danger); font-weight: 600; line-height: 1.3; }
+  .formmsg.ok { color: #9be39b; }
+  .nameform { margin: 10px 0 4px; padding: 10px 12px; border: 1px dashed rgba(242,193,78,.5); border-radius: 10px; background: rgba(14,20,48,.45); }
+  .nameform label { display: block; margin-bottom: 6px; }
+  .nameform input[type=text] { font: inherit; font-size: calc(20px * var(--ts)); width: 11em; padding: 5px 12px; border-radius: 10px; border: 1px solid #3c4890; background: #0E1430; color: var(--text); user-select: text; -webkit-user-select: text; }
+  .nameform input[type=text]:focus-visible { outline: 2px solid var(--gold); }
+  table.lb { width: 100%; border-collapse: collapse; margin: 8px 0; text-align: left; }
+  table.lb th { color: var(--gold); font-weight: 600; padding: 3px 10px; border-bottom: 1px solid rgba(242,193,78,.4); }
+  table.lb td { padding: 3px 10px; }
+  table.lb tr:nth-child(even) td { background: rgba(14,20,48,.45); }
+  table.lb td.num, table.lb th.num { text-align: right; }
   #dawn { background: linear-gradient(180deg, rgba(40,40,90,.55), rgba(255,150,90,.55) 70%, rgba(255,220,150,.6)); }
-  #dawn .card { background: rgba(60, 40, 70, .88); }
-  .breakdown { font-size: 14px; margin: 8px auto; border-spacing: 14px 2px; }
+  #dawn .card { background: rgba(60, 40, 70, .9); }
+  .breakdown { font-size: calc(18px * var(--ts)); margin: 6px auto; border-spacing: 14px 1px; }
   .breakdown td:last-child { text-align: right; color: var(--gold); }
 
   /* ---------------- HUD */
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
   .hpanel { position: absolute; background: var(--panel); border-radius: 10px; padding: 6px 12px; border: 1px solid rgba(242,193,78,.2); }
   #flames { top: 12px; left: 12px; display: flex; gap: 4px; padding: 6px 10px; }
-  #flames svg { width: 26px; height: 30px; }
-  #timer { top: 12px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+  #flames svg { width: calc(26px * var(--ts)); height: calc(30px * var(--ts)); }
+  #timer { top: 12px; left: 50%; transform: translateX(-50%); font-size: calc(28px * var(--ts)); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
   #timer.danger { color: var(--danger); animation: blink 1s steps(2, start) infinite; }
+  #timer.last10 { outline: 3px solid var(--danger); outline-offset: 2px; }
   body.cb #timer.danger::before { content: "⚠ "; }
+  body.reduced #timer.danger { animation: none; }
+  body.reduced * { transition: none !important; }
   .warn { color: var(--danger); font-weight: 700; }
   body.cb .warn::before { content: "⚠ "; }
   @keyframes blink { to { visibility: hidden; } }
-  #topright { top: 12px; right: 12px; text-align: right; font-size: 15px; line-height: 1.5; }
-  #topright .score { color: var(--gold); font-weight: 700; font-size: 18px; }
-  #topright .need { font-size: 13px; opacity: .8; }
+  #topright { top: 12px; right: 12px; text-align: right; line-height: 1.35; }
+  #topright .score { color: var(--gold); font-weight: 700; font-size: calc(22px * var(--ts)); }
+  #topright .need { font-size: calc(18px * var(--ts)); opacity: .85; }
   #topright .need.ok { color: #9be39b; opacity: 1; }
   #topright .need.low { color: var(--danger); opacity: 1; font-weight: 600; }
-  #nightname { font-size: 12px; opacity: .7; }
-  #motebar { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 8px 10px; align-items: center; max-width: calc(100vw - 330px); }
+  #nightname, #seed { font-size: calc(18px * var(--ts)); opacity: .8; }
+  #motebar { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 8px 10px; align-items: center; max-width: calc(100vw - 340px); }
   .slot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #3c4890; background: rgba(0,0,0,.25); }
   .slot.on { background: radial-gradient(circle, var(--mote) 35%, var(--halo) 70%); border-color: var(--halo); box-shadow: 0 0 8px var(--halo); }
-  #motecount { margin-left: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #motecount { margin-left: 6px; font-size: calc(18px * var(--ts)); font-variant-numeric: tabular-nums; }
   #cooldowns { bottom: 16px; right: 12px; display: flex; gap: 10px; padding: 8px 10px; }
-  .cd { position: relative; width: 50px; height: 50px; border-radius: 50%; background: #26306a; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 2px solid #3c4890; }
+  .cd { position: relative; width: calc(66px * var(--ts)); height: calc(66px * var(--ts)); border-radius: 50%; background: #26306a; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid #3c4890; box-sizing: border-box; line-height: 1.05; }
   .cd.ready { border-color: var(--lit); box-shadow: 0 0 10px rgba(255,179,71,.6); }
   .cd.charm { border-color: var(--scarf); box-shadow: 0 0 10px var(--gold); }
   .cd .mask { position: absolute; inset: -2px; border-radius: 50%; }
-  .cd .key { position: absolute; bottom: -9px; font-size: 10px; background: #0E1430; border: 1px solid #3c4890; border-radius: 4px; padding: 0 4px; }
-  .cd .ico { position: relative; }
-  #charmtag { position: absolute; bottom: 84px; right: 12px; color: var(--gold); background: rgba(200,16,46,.75); border: 1px solid var(--gold); border-radius: 8px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
-  #prompt { position: absolute; bottom: 74px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 7px 16px; border-radius: 18px; font-size: 16px; border: 1px solid var(--lit); }
-  #arrow { position: absolute; width: 0; height: 0; left: 0; top: 0; }
-  #arrow .tri { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; background: var(--lit); clip-path: polygon(100% 50%, 0 0, 22% 50%, 0 100%); filter: drop-shadow(0 0 4px var(--lit)); }
-  #arrow .lbl { position: absolute; left: -24px; top: 16px; width: 48px; text-align: center; font-size: 11px; font-weight: 600; text-shadow: 0 0 3px #000; }
-  #wind { top: 60px; left: 50%; transform: translateX(-50%); color: #cfe8d0; border-color: #8fbf9a; font-weight: 600; display: flex; gap: 8px; align-items: center; }
-  #wind .dir { display: inline-block; font-size: 18px; }
-  #toast { position: absolute; top: 108px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 6px 14px; border-radius: 14px; font-size: 14px; transition: opacity .4s; }
-  #respawn { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; background: var(--panel); padding: 10px 18px; border-radius: 12px; }
+  .cd .ico { position: relative; font-size: calc(22px * var(--ts)); }
+  .cd .key { position: relative; font-size: calc(18px * var(--ts)); font-weight: 600; }
+  #charmtag { position: absolute; bottom: calc(100px * var(--ts)); right: 12px; color: var(--gold); background: rgba(200,16,46,.78); border: 1px solid var(--gold); border-radius: 8px; padding: 3px 10px; font-size: calc(18px * var(--ts)); font-weight: 600; }
+  #prompt { position: absolute; bottom: calc(78px * var(--ts)); left: 50%; transform: translateX(-50%); background: var(--panel); padding: 6px 16px; border-radius: 18px; font-size: calc(18px * var(--ts)); border: 1px solid var(--lit); white-space: nowrap; }
+  #captions { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(126px * var(--ts)); display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; width: min(920px, 92vw); }
+  .cap { background: var(--panel2); border: 1px solid var(--gold); border-radius: 12px; padding: 5px 16px; font-size: calc(19px * var(--ts)); font-weight: 600; text-align: center; }
+  .cap.warn { border-color: var(--danger); border-width: 2px; }
+  .edgearrow { position: absolute; width: 0; height: 0; left: 0; top: 0; }
+  .edgearrow .tri { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; background: var(--lit); clip-path: polygon(100% 50%, 0 0, 22% 50%, 0 100%); filter: drop-shadow(0 0 4px var(--lit)); }
+  .edgearrow .lbl { position: absolute; left: -72px; top: 18px; width: 144px; text-align: center; font-size: calc(18px * var(--ts)); font-weight: 600; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+  .edgearrow.shade .tri { background: var(--danger); filter: drop-shadow(0 0 4px var(--danger)); }
+  .edgearrow.shade .lbl { color: var(--danger); }
+  #wind { top: calc(68px * var(--ts)); left: 50%; transform: translateX(-50%); color: #cfe8d0; border-color: #8fbf9a; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  #wind .dir { display: inline-block; font-size: calc(22px * var(--ts)); }
+  #toast { position: absolute; top: calc(118px * var(--ts)); left: 50%; transform: translateX(-50%); background: var(--panel); padding: 5px 14px; border-radius: 14px; font-size: calc(18px * var(--ts)); transition: opacity .4s; white-space: nowrap; }
+  #respawn { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); font-size: calc(22px * var(--ts)); background: var(--panel); padding: 10px 18px; border-radius: 12px; }
   #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(var(--danger-rgb),.55)); opacity: 0; transition: opacity .35s; }
-  #fps { position: fixed; left: 12px; bottom: 12px; z-index: 30; font: 12px ui-monospace, Consolas, monospace; background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
-  #seed { position: fixed; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; opacity: .35; z-index: 5; pointer-events: none; }
+  #fps { position: fixed; left: 12px; bottom: 12px; z-index: 30; font: calc(18px * var(--ts)) ui-monospace, Consolas, monospace; background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -92,11 +126,12 @@
 <div id="hud" class="hidden">
   <div id="flames" class="hpanel"></div>
   <div id="timer" class="hpanel">5:00</div>
-  <div id="topright" class="hpanel"><div id="nightname"></div><div>Đèn đang sáng <b id="lanterns">0/5</b> <span class="need" id="need">(cần 3)</span></div><div>Điểm <span class="score" id="score">0</span></div></div>
+  <div id="topright" class="hpanel"><div id="nightname"></div><div>Đèn đang sáng <b id="lanterns">0/5</b> <span class="need" id="need">(cần 3)</span></div><div>Điểm <span class="score" id="score">0</span></div><div id="seed"></div></div>
   <div id="wind" class="hpanel hidden"><span>🍃 Gió sắp nổi!</span><span class="dir" id="winddir">➤</span></div>
   <div id="toast" class="hidden"></div>
   <div id="prompt" class="hidden"></div>
-  <div id="arrow" class="hidden"><div class="tri"></div><div class="lbl" id="arrowlbl"></div></div>
+  <div id="captions" role="status" aria-live="polite"></div>
+  <div id="arrow" class="edgearrow hidden"><div class="tri"></div><div class="lbl" id="arrowlbl"></div></div>
   <div id="respawn" class="hidden">Mây rơi xuống biển mây… đang hồi sinh</div>
   <div id="motebar" class="hpanel"></div>
   <div id="charmtag" class="hidden">Bùa Gió</div>
@@ -107,31 +142,25 @@
   <div id="vignette"></div>
 </div>
 <div id="fps" class="hidden"></div>
-<div id="seed"></div>
 
 <!-- ================= screens ================= -->
 <div id="loading" class="overlay"><div class="card"><h1>Đảo Đèn Lồng</h1><p id="loadmsg">Đang tải logic game (Python/Pyodide)…</p></div></div>
 
-<div id="menu" class="overlay hidden"><div class="card">
+<div id="menu" class="overlay hidden"><div class="card mid">
   <h1>Đảo Đèn Lồng</h1>
   <h2>Ba hòn đảo · Ba đêm</h2>
   <p>Sương đen đã nuốt ánh sáng của quần đảo. Giúp Mây gom đom đóm, thắp và châm dầu cho các Đèn Lồng Lớn trên Đảo Bến, Đảo Cau và Đảo Chuông, giữ đảo sáng cho tới bình minh.</p>
   <div class="btns">
     <button class="btn primary" id="btn-start" data-primary type="button">Bắt đầu</button>
-    <div class="row"><span class="hint" style="align-self:center">Chọn Đêm:</span>
+    <div class="row"><span class="hint">Chọn Đêm:</span>
       <button class="btn small" id="btn-night-1" type="button">Đêm 1</button>
       <button class="btn small" id="btn-night-2" type="button">Đêm 2</button>
       <button class="btn small" id="btn-night-3" type="button">Đêm 3</button></div>
-    <button class="btn" id="btn-settings-menu" type="button">Cài đặt</button>
+    <div class="row">
+      <button class="btn" id="btn-leaderboard" type="button">Bảng xếp hạng</button>
+      <button class="btn" id="btn-settings-menu" type="button">Cài đặt</button></div>
   </div>
-  <table>
-    <tr><td><kbd>W A S D</kbd></td><td>Đi lại (theo hướng camera)</td></tr>
-    <tr><td><kbd>Kéo chuột</kbd> / <kbd>← → ↑ ↓</kbd></td><td>Xoay camera · lăn chuột: thu phóng</td></tr>
-    <tr><td><kbd>Space</kbd> · <kbd>Shift</kbd></td><td>Nhảy · Lướt</td></tr>
-    <tr><td><kbd>E</kbd></td><td>Nạp đom đóm: thắp đèn tắt · châm dầu đèn đang sáng</td></tr>
-    <tr><td><kbd>F</kbd></td><td>Tỏa Sáng: choáng Bóng Mực (3 đom đóm)</td></tr>
-    <tr><td><kbd>Esc</kbd> / <kbd>P</kbd> · <kbd>F3</kbd></td><td>Tạm dừng · hiện FPS</td></tr>
-  </table>
+  <table id="controls-help"></table>
   <p class="hint">Nhấn <kbd>Enter</kbd> để bắt đầu</p>
 </div></div>
 
@@ -152,23 +181,65 @@
     <button class="btn" id="btn-settings-pause" type="button">Cài đặt</button>
     <button class="btn" id="btn-menu-pause" type="button">Về menu</button>
   </div>
-  <p class="hint"><kbd>Esc</kbd> / <kbd>P</kbd> để tiếp tục</p>
+  <p class="hint"><kbd>Esc</kbd> hoặc phím Tạm dừng để tiếp tục</p>
 </div></div>
 
-<div id="settings" class="overlay hidden"><div class="card">
+<div id="settings" class="overlay hidden"><div class="card wide">
   <h1>Cài đặt</h1>
-  <div class="setting"><label for="set-volume">Âm lượng</label><input id="set-volume" type="range" min="0" max="100" step="1"><span id="val-volume"></span></div>
-  <div class="setting"><label for="set-sens">Độ nhạy chuột</label><input id="set-sens" type="range" min="10" max="300" step="5"><span id="val-sens"></span></div>
-  <div class="setting toggle"><label for="set-cb">Bảng màu dễ phân biệt</label><input id="set-cb" type="checkbox">
-    <small>Bóng Mực viền xanh dương, cảnh báo màu trắng kèm ⚠. Đèn tắt luôn bị xẹp và có vết rách; đèn sắp hết dầu luôn nhấp nháy.</small></div>
+  <div class="cols">
+    <div>
+      <h2>Âm thanh · Hiển thị · Tiếp cận</h2>
+      <div class="setting"><label for="set-volume">Âm lượng</label><input id="set-volume" type="range" min="0" max="100" step="1"><span id="val-volume"></span></div>
+      <div class="setting"><label for="set-sens">Độ nhạy chuột</label><input id="set-sens" type="range" min="10" max="300" step="5"><span id="val-sens"></span></div>
+      <div class="setting toggle"><label for="set-cb">Bảng màu dễ phân biệt</label><input id="set-cb" type="checkbox">
+        <small>Bóng Mực viền xanh dương, cảnh báo màu trắng kèm ⚠.</small></div>
+      <div class="setting toggle"><label for="set-reduced">Giảm chuyển động</label><input id="set-reduced" type="checkbox">
+        <small>Tắt rung camera và chớp màn hình.</small></div>
+      <div class="setting toggle"><label for="set-large">Chữ lớn (×1,25)</label><input id="set-large" type="checkbox"></div>
+      <div class="setting toggle"><label for="set-captions">Phụ đề và chỉ báo hình ảnh</label><input id="set-captions" type="checkbox"></div>
+    </div>
+    <div>
+      <h2>Phím điều khiển</h2>
+      <div id="keymap"></div>
+      <div id="key-msg" class="formmsg" role="alert"></div>
+      <div class="row"><button class="btn small" id="btn-keys-reset" type="button">Khôi phục mặc định</button></div>
+      <p class="hint">Esc luôn là Tạm dừng / Quay lại. Mũi tên xoay camera.</p>
+    </div>
+  </div>
   <div class="btns"><button class="btn primary" id="btn-settings-done" data-primary type="button">Xong</button></div>
   <p class="hint">Cài đặt được lưu trên trình duyệt này.</p>
 </div></div>
+
+<div id="leaderboard" class="overlay hidden"><div class="card wide">
+  <h1>Bảng xếp hạng</h1>
+  <table class="lb" id="lb-table">
+    <thead><tr><th class="num">Hạng</th><th>Tên</th><th class="num">Điểm</th><th class="num">Đêm thắng</th><th>Ngày</th></tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+  <p id="lb-empty" class="hint hidden">Chưa có điểm nào. Hãy chơi để ghi tên mình lên bảng!</p>
+  <p id="lb-source" class="hint"></p>
+  <div class="btns"><button class="btn primary" id="btn-lb-back" data-primary type="button">Quay lại</button></div>
+</div></div>
+
+<!-- name entry for the leaderboard: moved into the result card (after a loss) or the Dawn card -->
+<div id="nameform" class="nameform hidden">
+  <div id="nameform-edit">
+    <label for="name-input">Lưu điểm vào bảng xếp hạng: nhập tên (3–12 ký tự: chữ, số hoặc _)</label>
+    <div class="row"><input id="name-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" aria-describedby="name-msg">
+      <button class="btn small primary" id="btn-save-score" type="button">Lưu điểm</button></div>
+    <div id="name-msg" class="formmsg" role="alert"></div>
+  </div>
+  <div id="nameform-done" class="hidden">
+    <div id="name-saved" class="formmsg ok" role="status"></div>
+    <button class="btn small" id="btn-view-lb" type="button">Xem bảng xếp hạng</button>
+  </div>
+</div>
 
 <div id="result" class="overlay hidden"><div class="card">
   <h1 id="res-title"></h1>
   <p id="res-msg"></p>
   <table class="breakdown" id="res-table"></table>
+  <div id="res-form-slot"></div>
   <div class="btns">
     <button class="btn primary" id="btn-next" data-primary type="button">Đêm tiếp theo</button>
     <button class="btn primary" id="btn-retry" data-primary type="button">Chơi lại Đêm</button>
@@ -181,8 +252,9 @@
   <h1>Bình Minh</h1>
   <p>Chuông trên Đảo Chuông ngân vang. Cả ba hòn đảo đã sáng lại, sương đen tan dần trong nắng sớm.</p>
   <p class="quote"><span class="who">Ông Đăng:</span> “Giỏi lắm, Mây. Đèn đã về với đảo, và đảo đã về với người.”</p>
-  <div>Tổng điểm</div><div class="big" id="dawn-total">0</div>
+  <div>Tổng điểm <span class="big" id="dawn-total">0</span></div>
   <table class="breakdown" id="dawn-table"></table>
+  <div id="dawn-form-slot"></div>
   <div class="btns">
     <button class="btn primary" id="btn-dawn-again" data-primary type="button">Chơi lại từ đầu</button>
     <button class="btn" id="btn-dawn-menu" type="button">Về menu</button>
@@ -192,8 +264,11 @@
 <!-- tools/build_web.py fills this with game/sim.py for the single-file build
      (other game/*.py modules go in <script type="text/x-python" data-module="NAME"> tags) -->
 <script type="text/x-python" id="sim-src"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pyodide@0.27.2/pyodide.js"></script>
+<!-- Libraries load vendor-first (web/vendor/, fetched by tools/fetch_vendor.py) and fall back to the CDN.
+     tools/build_web.py sets DDL_VENDOR to false for the single-file build, which has no vendor/ folder. -->
+<script>window.DDL_VENDOR = true;</script>
+<script>if (window.DDL_VENDOR) document.write('<script src="vendor/three.min.js"><\/script>');</script>
+<script>if (typeof THREE === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
 <script>
 "use strict";
 // The page only renders and reads input. Every game rule lives in game/sim.py (run here by Pyodide).
@@ -216,11 +291,14 @@ const fuelMax = () => TUNING.fuel_max || 100;
 const lowFuelAt = () => TUNING.low_fuel_threshold || 30;
 const needLit = (n) => Math.ceil((TUNING.win_ratio || 0.6) * n - 1e-9);   // HUD only; the sim decides the win
 const isLow = (l) => l.lit && (l.fuel ?? fuelMax()) < lowFuelAt();
-let py = null, simMod = null, simStep = null, simNew = null, simMap = null;
+let py = null, simMod = null, simStep = null, simNew = null, simMap = null, simBenchNew = null;
 let snap = null, prevSnap = null, extra = {}, mapData = null, seed = 0;
 let ui = "loading", night = 1, settingsFrom = "menu", endTimer = null;
 let runScores = {};                    // night -> score of WON nights in this run
 const URLQ = new URLSearchParams(location.search);
+// Benchmark page (Ticket-04): ?bench=1&seed=42&duration=30. Fixed 1280x720 canvas, no UI, no input, default settings.
+const BENCH = URLQ.get("bench") === "1";
+if (BENCH) document.body.classList.add("bench");
 
 // ================================================================ Python core
 const PY_STD = new Set(["math", "random", "json", "sys", "os", "copy", "itertools", "functools", "collections",
@@ -266,10 +344,32 @@ async function gatherSources() {
   return mods;
 }
 const pyJSON = (r) => (typeof r === "string" ? JSON.parse(r) : r.toJs({ dict_converter: Object.fromEntries }));
+const PYODIDE_CDN = "https://cdn.jsdelivr.net/npm/pyodide@0.27.2/";
+function loadScriptTag(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = () => res(src); s.onerror = () => { s.remove(); rej(new Error("không tải được " + src)); };
+    document.head.appendChild(s);
+  });
+}
+// Pyodide loads vendor-first too: window.PYODIDE_INDEX (Artifact build) -> web/vendor/pyodide/ -> the CDN.
+// Returns the index URL whose pyodide.js is running (its pyodide.asm.* / stdlib files sit next to it).
+async function ensurePyodide() {
+  const tried = [];
+  if (typeof loadPyodide === "function") return window.PYODIDE_INDEX || PYODIDE_CDN;
+  const cands = [];
+  if (window.PYODIDE_INDEX) cands.push(window.PYODIDE_INDEX);
+  if (window.DDL_VENDOR) cands.push(new URL("vendor/pyodide/", document.baseURI).href);
+  cands.push(PYODIDE_CDN);
+  for (const c of cands) {
+    try { await loadScriptTag(c + "pyodide.js"); if (typeof loadPyodide === "function") return c; } catch (e) { tried.push(String(e.message || e)); }
+  }
+  throw new Error("không tải được Pyodide (" + tried.join("; ") + ")");
+}
 async function loadSim() {
   const mods = await gatherSources();
-  // the Artifact build ships Pyodide's files next to the page (window.PYODIDE_INDEX)
-  py = await loadPyodide({ indexURL: window.PYODIDE_INDEX || "https://cdn.jsdelivr.net/npm/pyodide@0.27.2/" });
+  const indexURL = await ensurePyodide();
+  py = await loadPyodide({ indexURL });
   py.FS.mkdirTree("/home/pyodide/game");
   py.FS.writeFile("/home/pyodide/game/__init__.py", "");
   // each module goes into the game/ package (`from . import maps`) and at top level (plain `import maps`)
@@ -280,14 +380,35 @@ async function loadSim() {
   simStep = simMod.web_step;
   simNew = simMod.web_new;
   simMap = simMod.web_map;
+  simBenchNew = simMod.web_bench_new || null;      // Ticket-04 benchmark scene (older sim.py has none)
 }
 
 // ================================================================ settings (localStorage, always guarded)
 const SETTINGS_KEY = "dao-den-long.settings";
-const settings = { volume: 70, sens: 100, cb: false };
+// Rebindable actions (Ticket-04 Part 4). Bindings are KeyboardEvent.code strings; Shift/Ctrl/Alt left and right count as one key.
+const ACTIONS = [["up", "Đi lên"], ["down", "Đi xuống"], ["left", "Đi trái"], ["right", "Đi phải"], ["jump", "Nhảy"],
+  ["dash", "Lướt"], ["interact", "Tương tác"], ["pulse", "Tỏa Sáng"], ["pause", "Tạm dừng"]];
+const DEFAULT_KEYS = { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD", jump: "Space", dash: "ShiftLeft",
+  interact: "KeyE", pulse: "KeyF", pause: "KeyP" };
+const RESERVED_KEYS = ["Escape", "Enter", "NumpadEnter", "Tab", "F3", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];   // Esc = pause/back, Enter = confirm, arrows = camera
+const BTN_ACTIONS = ["jump", "interact", "pulse", "dash"];
+const normCode = (c) => (/^(Shift|Control|Alt|Meta)Right$/.test(c) ? c.replace("Right", "Left") : c);
+const actionLabel = (a) => (ACTIONS.find((x) => x[0] === a) || [a, a])[1];
+function keyLabel(c) {
+  if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+  if (/^Digit\d$/.test(c)) return c.slice(5);
+  if (/^Numpad/.test(c)) return "Num " + c.slice(6);
+  const names = { Space: "Space", ShiftLeft: "Shift", ControlLeft: "Ctrl", AltLeft: "Alt", MetaLeft: "Meta", Escape: "Esc", Enter: "Enter",
+    ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→", Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[",
+    BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backspace: "Backspace", CapsLock: "Caps" };
+  return names[c] || c;
+}
+const prefersReducedMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
+const settings = { volume: 70, sens: 100, cb: false, reduced: false, large: false, captions: true, keys: { ...DEFAULT_KEYS } };
 // Bóng Mực rim/eyes and the UI warning colour (Ticket-03 Part 6); render() reads PAL every frame
 const PAL = { accent: 0x7A3CFF, warn: 0xFF5A5F };
 function loadSettings() {
+  settings.reduced = prefersReducedMotion();          // the OS setting is the default until the player chooses
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
@@ -295,6 +416,16 @@ function loadSettings() {
       if (Number.isFinite(s.volume)) settings.volume = Math.max(0, Math.min(100, s.volume));
       if (Number.isFinite(s.sens)) settings.sens = Math.max(10, Math.min(300, s.sens));
       if (typeof s.cb === "boolean") settings.cb = s.cb;
+      if (typeof s.reduced === "boolean") settings.reduced = s.reduced;
+      if (typeof s.large === "boolean") settings.large = s.large;
+      if (typeof s.captions === "boolean") settings.captions = s.captions;
+      if (s.keys && typeof s.keys === "object") {
+        const k = { ...DEFAULT_KEYS };
+        for (const [a] of ACTIONS) if (typeof s.keys[a] === "string" && /^[A-Za-z0-9]{1,24}$/.test(s.keys[a])) k[a] = normCode(s.keys[a]);
+        const vals = Object.values(k);
+        // a corrupt save (duplicates / reserved keys) falls back to the defaults instead of breaking the controls
+        Object.assign(settings.keys, new Set(vals).size === vals.length && !vals.some((c) => RESERVED_KEYS.includes(c)) ? k : DEFAULT_KEYS);
+      }
     }
   } catch (e) { /* storage blocked or corrupt: keep defaults */ }
 }
@@ -306,21 +437,88 @@ function applyColorblind() {
   PAL.accent = settings.cb ? 0x00B3FF : 0x7A3CFF;
   PAL.warn = settings.cb ? 0xFFFFFF : 0xFF5A5F;
 }
+function applyAccessibility() {
+  document.body.classList.toggle("large", settings.large);
+  document.body.classList.toggle("reduced", settings.reduced);
+}
+// ---- key map screen
+let listening = null;                       // action being rebound, or null
+function keyMsg(text, warn) { const m = $("key-msg"); m.textContent = text; m.classList.toggle("ok", !warn && !!text); }
+function renderKeymap() {
+  const box = $("keymap"); box.innerHTML = "";
+  for (const [a, label] of ACTIONS) {
+    const row = document.createElement("div"); row.className = "keyrow" + (listening === a ? " listening" : "");
+    const lb = document.createElement("span"); lb.textContent = label;
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn small keybtn"; b.id = "key-" + a; b.dataset.action = a;
+    b.textContent = listening === a ? "Nhấn phím…" : keyLabel(settings.keys[a]);
+    b.setAttribute("aria-label", `${label}: phím ${keyLabel(settings.keys[a])}. Nhấn để đổi phím`);
+    b.addEventListener("click", (e) => { e.stopPropagation(); b.blur(); beginListen(a); });
+    row.append(lb, b); box.appendChild(row);
+  }
+}
+function beginListen(a) {
+  listening = a; renderKeymap();
+  keyMsg(`Nhấn phím mới cho "${actionLabel(a)}" (Esc để hủy).`, false);
+}
+function cancelListen(msg) { listening = null; renderKeymap(); keyMsg(msg || "", false); }
+function handleRebind(e) {
+  e.preventDefault();
+  if (e.repeat || ["Meta", "OS", "Dead", "Process", "Unidentified"].includes(e.key)) return;
+  const a = listening, code = normCode(e.code), label = keyLabel(code);
+  if (code === "Escape") { cancelListen("Đã hủy đổi phím."); return; }
+  listening = null; renderKeymap();
+  if (RESERVED_KEYS.includes(code)) { keyMsg(`⚠ Phím ${label} dành riêng cho hệ thống (Esc, Enter, Tab, F3, mũi tên). Chưa đổi, hãy chọn phím khác.`, true); return; }
+  const other = ACTIONS.find(([k]) => k !== a && settings.keys[k] === code);
+  if (other) { keyMsg(`⚠ Trùng phím: ${label} đang dùng cho "${other[1]}". Chưa đổi, hãy chọn phím khác.`, true); return; }
+  settings.keys[a] = code; saveSettings(); renderKeymap(); renderHelp(); applyKeyLabels();
+  keyMsg(`Đã gán phím ${label} cho "${actionLabel(a)}".`, false);
+}
+function resetKeys() {
+  listening = null; Object.assign(settings.keys, DEFAULT_KEYS); saveSettings(); renderKeymap(); renderHelp(); applyKeyLabels();
+  keyMsg("Đã khôi phục phím mặc định.", false);
+}
+function applyKeyLabels() {
+  $("cd-dash").querySelector(".key").textContent = keyLabel(settings.keys.dash);
+  $("cd-pulse").querySelector(".key").textContent = keyLabel(settings.keys.pulse);
+}
+function renderHelp() {      // the controls list on the main menu always shows the current bindings
+  const k = (a) => `<kbd>${keyLabel(settings.keys[a])}</kbd>`;
+  $("controls-help").innerHTML =
+    `<tr><td>${k("up")} ${k("left")} ${k("down")} ${k("right")}</td><td>Đi lại (theo hướng camera)</td></tr>` +
+    `<tr><td><kbd>Kéo chuột</kbd> <kbd>← → ↑ ↓</kbd></td><td>Xoay camera · lăn chuột: thu phóng</td></tr>` +
+    `<tr><td>${k("jump")} ${k("dash")}</td><td>Nhảy · Lướt</td></tr>` +
+    `<tr><td>${k("interact")}</td><td>Nạp đom đóm: thắp đèn, châm dầu đèn đang sáng</td></tr>` +
+    `<tr><td>${k("pulse")}</td><td>Tỏa Sáng: choáng Bóng Mực (3 đom đóm)</td></tr>` +
+    `<tr><td><kbd>Esc</kbd> ${k("pause")} <kbd>F3</kbd></td><td>Tạm dừng · hiện FPS</td></tr>`;
+}
 function showSettingsValues() {
   $("set-volume").value = settings.volume; $("val-volume").textContent = settings.volume;
   $("set-sens").value = settings.sens; $("val-sens").textContent = (settings.sens / 100).toFixed(2) + "×";
   $("set-cb").checked = settings.cb;
+  $("set-reduced").checked = settings.reduced;
+  $("set-large").checked = settings.large;
+  $("set-captions").checked = settings.captions;
+  renderKeymap();
 }
-loadSettings();
+if (!BENCH) loadSettings();                // the benchmark scene always uses the defaults
 applyColorblind();
+applyAccessibility();
 showSettingsValues();
+renderHelp();
+applyKeyLabels();
 $("set-volume").addEventListener("input", (e) => { settings.volume = +e.target.value; showSettingsValues(); applyVolume(); saveSettings(); sfx.pickup(3); });
 $("set-sens").addEventListener("input", (e) => { settings.sens = +e.target.value; showSettingsValues(); saveSettings(); });
 $("set-cb").addEventListener("change", (e) => { settings.cb = e.target.checked; applyColorblind(); saveSettings(); hudKey = ""; });
+$("set-reduced").addEventListener("change", (e) => { settings.reduced = e.target.checked; applyAccessibility(); saveSettings(); });
+$("set-large").addEventListener("change", (e) => { settings.large = e.target.checked; applyAccessibility(); saveSettings(); });
+$("set-captions").addEventListener("change", (e) => { settings.captions = e.target.checked; saveSettings(); if (!settings.captions) clearCues(); });
+$("btn-keys-reset").addEventListener("click", (e) => { e.stopPropagation(); resetKeys(); });
+document.addEventListener("pointerdown", (e) => { if (listening && !e.target.closest(".keybtn")) cancelListen(); });
 
 // ================================================================ sound (WebAudio, synthesized; starts after a user gesture)
 let actx = null, master = null, musicBus = null, sfxBus = null, musicTimer = null, musicOn = false, musicStep = 0, musicNext = 0, noiseBuf = null;
 function ensureAudio() {
+  if (BENCH) return;                       // the benchmark is silent
   if (actx) { if (actx.state === "suspended") actx.resume().catch(() => {}); return; }
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -406,15 +604,16 @@ function duckMusic(on) { if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.15 :
 // ================================================================ three.js scene
 // MSAA is the most expensive thing on weak / software GPUs: on by default only with ?hq
 const renderer = new THREE.WebGLRenderer({ antialias: URLQ.has("hq"), powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-renderer.setSize(innerWidth, innerHeight);
+const VIEW_W = BENCH ? 1280 : innerWidth, VIEW_H = BENCH ? 720 : innerHeight;     // the benchmark is always 1280x720 at pixel ratio 1
+renderer.setPixelRatio(BENCH ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setSize(VIEW_W, VIEW_H);
 document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const SKY = new THREE.Color(0x0E1430), MIST = new THREE.Color(0x1B2350);
 scene.background = SKY.clone();
 scene.fog = new THREE.FogExp2(0x1B2350, 0.02);
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 420);
-addEventListener("resize", () => {
+const camera = new THREE.PerspectiveCamera(60, VIEW_W / VIEW_H, 0.1, 420);
+if (!BENCH) addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
@@ -502,6 +701,7 @@ function glowSprite(color, size, opacity = 1) {
     m4.compose(new THREE.Vector3(35 + d * Math.cos(a), -13 + r() * 3, d * Math.sin(a)), new THREE.Quaternion(), new THREE.Vector3(s * 1.6, s * 0.45, s));
     puff.setMatrixAt(i, m4);
   }
+  puff.frustumCulled = false;       // an InstancedMesh is culled by its single geometry at the origin: never cull it
   scene.add(puff);
 })();
 
@@ -534,7 +734,7 @@ function clearWorld() {
   world.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
   world = new THREE.Group(); scene.add(world);
   padObjs.length = 0; towerBell = null;
-  for (const objs of [lanternObjs, moteObjs, shadeObjs, drifterObjs, charmObjs]) for (const k in objs) { if (objs[k].userData.shadow) scene.remove(objs[k].userData.shadow); delete objs[k]; }
+  for (const objs of [lanternObjs, drifterObjs, charmObjs, shadeObjs]) for (const k in objs) delete objs[k];   // shade extras lived in the old world group
 }
 function buildIsland(is) {
   const r = is.radius, g = new THREE.Group();
@@ -661,13 +861,13 @@ function decorate(map, n) {
     if (y !== null) out.push([x, y, z]); } return out; };
   const tufts = spots(260, 1200), tm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.55, 4), new THREE.MeshLambertMaterial({ color: 0x4a8a6a }), tufts.length);
   tufts.forEach(([x, y, z], i) => { const s = 0.6 + r() * 0.9; q.setFromAxisAngle(up, r() * 6); m4.compose(new THREE.Vector3(x, y + 0.25 * s, z), q, new THREE.Vector3(s, s, s)); tm.setMatrixAt(i, m4); });
-  world.add(tm);
+  tm.frustumCulled = false; world.add(tm);
   const flowers = spots(60, 600), fm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0x9fb4ff }), flowers.length);
   flowers.forEach(([x, y, z], i) => { m4.compose(new THREE.Vector3(x, y + 0.12, z), q, new THREE.Vector3(1, 1, 1)); fm.setMatrixAt(i, m4); });
-  world.add(fm);
+  fm.frustumCulled = false; world.add(fm);
   const rocks = spots(28, 400), rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.6, 0), M.rock, rocks.length);
   rocks.forEach(([x, y, z], i) => { const s = 0.3 + r() * 0.6; q.setFromAxisAngle(up, r() * 6); m4.compose(new THREE.Vector3(x, y + 0.15 * s, z), q, new THREE.Vector3(s, s * 0.6, s)); rm.setMatrixAt(i, m4); });
-  world.add(rm);
+  rm.frustumCulled = false; world.add(rm);
   if (n === 2) {             // Đảo Cau: areca palms
     const palms = spots(16, 500);
     const trunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 5, 6), leafGeo = new THREE.BoxGeometry(0.45, 0.04, 2.4);
@@ -709,7 +909,7 @@ function fallbackMap(n, s) {    // only used if the sim has no web_map (older si
 }
 
 // ================================================================ actors
-const lanternObjs = {}, moteObjs = {}, shadeObjs = {}, drifterObjs = {}, charmObjs = {};
+const lanternObjs = {}, shadeObjs = {}, drifterObjs = {}, charmObjs = {};      // shadeObjs: per-shade bookkeeping (shades and motes are instanced)
 function blob(size) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(size, 16), M.shadow);
   m.rotation.x = -Math.PI / 2; scene.add(m); return m;
@@ -759,36 +959,159 @@ function makeLantern() {
   world.add(g);
   return g;
 }
-const moteGeo = new THREE.SphereGeometry(0.11, 8, 6);
-function makeMote() {
-  const g = new THREE.Group();
-  const c = new THREE.Mesh(moteGeo, M.moteCore), h = glowSprite(0xFFE58A, 1.3, 0.85);
-  g.add(c, h); g.userData = { h }; world.add(g); return g;
+// ---- crowds: Bóng Mực and đom đóm are InstancedMeshes (a handful of draw calls whatever their number; the benchmark
+// scene has 200 shades and 100 motes). Per-instance colour (instColor) and alpha (instAlpha) are extra instance attributes.
+function instShader(sh) {
+  sh.vertexShader = sh.vertexShader
+    .replace("#include <common>", "#include <common>\nattribute vec3 instColor;\nattribute float instAlpha;\nvarying vec3 vIC;\nvarying float vIA;")
+    .replace("#include <begin_vertex>", "#include <begin_vertex>\nvIC = instColor; vIA = instAlpha;");
+  sh.fragmentShader = sh.fragmentShader
+    .replace("#include <common>", "#include <common>\nvarying vec3 vIC;\nvarying float vIA;")
+    .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= vIC; diffuseColor.a *= vIA;")
+    .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vIC;");   // Lambert only
 }
+function instMesh(geo, mat, max, order = 0) {
+  const g = geo.clone();                  // own geometry: it carries this mesh's instance attributes
+  const col = new THREE.InstancedBufferAttribute(new Float32Array(max * 3).fill(1), 3), alp = new THREE.InstancedBufferAttribute(new Float32Array(max).fill(1), 1);
+  col.setUsage(THREE.DynamicDrawUsage); alp.setUsage(THREE.DynamicDrawUsage);
+  g.setAttribute("instColor", col); g.setAttribute("instAlpha", alp);
+  mat.onBeforeCompile = instShader;
+  const m = new THREE.InstancedMesh(g, mat, max);
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  m.frustumCulled = false; m.renderOrder = order; m.count = 0; m.visible = false;
+  m.userData = { col, alp, colArr: col.array, alpArr: alp.array };
+  scene.add(m);
+  return m;
+}
+function setInst(m, i, mat4, hex, a) {
+  m.setMatrixAt(i, mat4);
+  const c = m.userData.colArr, k = i * 3;
+  c[k] = ((hex >> 16) & 255) / 255; c[k + 1] = ((hex >> 8) & 255) / 255; c[k + 2] = (hex & 255) / 255;
+  m.userData.alpArr[i] = a;
+}
+function flushInst(m, n) {
+  m.count = n; m.visible = n > 0;
+  m.instanceMatrix.needsUpdate = true; m.userData.col.needsUpdate = true; m.userData.alp.needsUpdate = true;
+}
+const SHADE_MAX = 256, MOTE_MAX = 192;
+const moteGeo = new THREE.SphereGeometry(0.11, 8, 6);
 const shadeGeo = new THREE.SphereGeometry(0.75, 18, 12), eyeGeo = new THREE.SphereGeometry(0.1, 8, 6), tailGeo = new THREE.ConeGeometry(0.55, 1.1, 12);
 const beadGeo = new THREE.SphereGeometry(1, 8, 6), TEND_N = 12, TEND_FLOW = 3;
-function makeShade() {
-  const g = new THREE.Group();
-  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x120A1A, emissive: 0x120A1A, transparent: true, opacity: 0.95 });
-  const rimMat = new THREE.MeshBasicMaterial({ color: PAL.accent, transparent: true, opacity: 0.5, side: THREE.BackSide, depthWrite: false });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: PAL.accent });
+const Y_AXIS = new THREE.Vector3(0, 1, 0), X_AXIS = new THREE.Vector3(1, 0, 0), Q_ID = new THREE.Quaternion();
+const Q_FLAT = new THREE.Quaternion().setFromAxisAngle(X_AXIS, -Math.PI / 2);
+const SH_RIM = new THREE.Matrix4().makeScale(1.14, 1.14, 1.14);
+const SH_TAIL = new THREE.Matrix4().compose(new THREE.Vector3(0, -0.75, 0), new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI), new THREE.Vector3(1, 1, 1));
+const SH_EYE_L = new THREE.Matrix4().makeTranslation(-0.25, 0.15, 0.66), SH_EYE_R = new THREE.Matrix4().makeTranslation(0.25, 0.15, 0.66);
+const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _P = new THREE.Matrix4(), _M = new THREE.Matrix4();
+const shadeInst = {
+  body: instMesh(shadeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xffffff, transparent: true }), SHADE_MAX),
+  tail: instMesh(tailGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xffffff, transparent: true }), SHADE_MAX),
+  rim: instMesh(shadeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.BackSide, depthWrite: false }), SHADE_MAX, 1),
+  eyes: instMesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), SHADE_MAX * 2),
+  blob: instMesh(new THREE.CircleGeometry(0.7, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }), SHADE_MAX),
+};
+const moteInst = {
+  core: instMesh(moteGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), MOTE_MAX),
+  glow: instMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), MOTE_MAX, 1),
+};
+// the drain tendril and the stun stars are rare, so they are plain objects made on first use for the shade that needs them
+function makeShadeExtras(u) {
   // drain tendril: a wobbling chain of dark beads from the shade to the lantern it feeds on, plus amber specks flowing back to it
-  const tendril = new THREE.Group(), beadMat = new THREE.MeshBasicMaterial({ color: 0x120A1A });
-  const beads = [], flow = [];
+  const tendril = new THREE.Group(), beadMat = new THREE.MeshBasicMaterial({ color: 0x120A1A }), beads = [], flow = [];
   for (let i = 0; i < TEND_N; i++) { const b = new THREE.Mesh(beadGeo, beadMat); tendril.add(b); beads.push(b); }
   for (let i = 0; i < TEND_FLOW; i++) { const s = glowSprite(0xFFB347, 0.55, 0.95); tendril.add(s); flow.push(s); }
-  tendril.visible = false; world.add(tendril);
-  const body = new THREE.Mesh(shadeGeo, bodyMat), rim = new THREE.Mesh(shadeGeo, rimMat);
-  rim.scale.setScalar(1.14);
-  const tail = new THREE.Mesh(tailGeo, bodyMat); tail.rotation.x = Math.PI; tail.position.y = -0.75;
-  const e1 = new THREE.Mesh(eyeGeo, eyeMat), e2 = new THREE.Mesh(eyeGeo, eyeMat);
-  e1.position.set(-0.25, 0.15, 0.66); e2.position.set(0.25, 0.15, 0.66);
+  tendril.visible = false;
   const stars = new THREE.Group();
   for (let i = 0; i < 3; i++) { const s = glowSprite(0xF2C14E, 0.45, 1); s.position.set(Math.cos(i * 2.1) * 0.6, 1.0, Math.sin(i * 2.1) * 0.6); stars.add(s); }
-  g.add(body, rim, tail, e1, e2, stars);
-  g.userData = { bodyMat, rimMat, eyeMat, stars, born: clock, shadow: blob(0.7), tendril, beadMat, beads, flow };
-  world.add(g);
-  return g;
+  stars.visible = false;
+  world.add(tendril, stars);
+  Object.assign(u, { tendril, beadMat, beads, flow, stars });
+}
+let crowdFrame = 0;
+function updateShades(p) {
+  const list = snap.shades || [], inst = shadeInst;
+  crowdFrame++;
+  let n = 0, nb = 0;
+  for (const s of list) {
+    let rec = shadeObjs[s.id];
+    if (!rec) rec = shadeObjs[s.id] = { userData: { born: clock } };      // bookkeeping only: the shade is drawn as an instance
+    const u = rec.userData, st = s.state;
+    u.seen = crowdFrame;
+    const x = s.pos[0], y = s.pos[1] + 0.12 * Math.sin(clock * 4 + s.pos[0]), z = s.pos[2];
+    // rim + eyes use the Bóng Mực accent (#7A3CFF, or #00B3FF in the colour-blind palette); chase eyes use the warning colour
+    let scale = 1, body = 0x120A1A, rim = PAL.accent, rimA = 0.45, eye = PAL.accent, op = 0.95;
+    if (st === "spawning") { scale = 0.35 + 0.5 * Math.min(1, (clock - u.born)); rimA = 0.8; op = 0.6; }
+    else if (st === "chase") { rimA = 0.75 + 0.15 * Math.sin(clock * 10); eye = PAL.warn; scale = 1.05; }
+    else if (st === "drain") { rimA = 0.6 + 0.25 * Math.sin(clock * 6); scale = 1.1 + 0.05 * Math.sin(clock * 9); }
+    else if (st === "recoil") { scale = 0.85; rimA = 0.25; op = 0.6 + 0.3 * Math.sin(clock * 30); }
+    else if (st === "stunned") { body = 0x3A3450; rim = 0x6d6690; rimA = 0.3; eye = 0x8a84a8; scale = 0.9 + 0.04 * Math.sin(clock * 20); }
+    u.state = st; u.bodyHex = body; u.rimHex = rim; u.eyeHex = eye; u.rimAlpha = rimA; u.scale = scale;
+    if (n < SHADE_MAX) {
+      _q.setFromAxisAngle(Y_AXIS, Math.atan2(p.pos[0] - x, p.pos[2] - z));       // faces Mây
+      _P.compose(_v.set(x, y, z), _q, _s.setScalar(scale));
+      setInst(inst.body, n, _P, body, op);
+      _M.multiplyMatrices(_P, SH_TAIL); setInst(inst.tail, n, _M, body, op);
+      _M.multiplyMatrices(_P, SH_RIM); setInst(inst.rim, n, _M, rim, rimA);
+      _M.multiplyMatrices(_P, SH_EYE_L); setInst(inst.eyes, 2 * n, _M, eye, 1);
+      _M.multiplyMatrices(_P, SH_EYE_R); setInst(inst.eyes, 2 * n + 1, _M, eye, 1);
+      n++;
+    }
+    const sg = vGround(mapData, x, z);                                           // blob shadow on the ground
+    if (sg !== null && nb < SHADE_MAX) { _P.compose(_v.set(x, sg + 0.03, z), Q_FLAT, _s.setScalar(1)); setInst(inst.blob, nb, _P, 0x000000, 1); nb++; }
+    if (st === "stunned" && !u.stars) makeShadeExtras(u);
+    if (u.stars) { u.stars.visible = st === "stunned"; u.stars.position.set(x, y, z); u.stars.scale.setScalar(scale); u.stars.rotation.y = clock * 4; }
+    // draining: a dark tendril reaches the lantern it is feeding on (nearest lit lantern, preferring one that is already low)
+    let feed = null;
+    if (st === "drain") {
+      let bd = Infinity;
+      for (const l of snap.lanterns) {
+        if (!l.lit) continue;
+        const d = Math.hypot(l.pos[0] - s.pos[0], l.pos[2] - s.pos[2]) - (isLow(l) ? 1 : 0);
+        if (d < bd) { bd = d; feed = l; }
+      }
+      if (feed && !u.tendril) makeShadeExtras(u);
+    }
+    if (u.tendril) u.tendril.visible = !!feed;
+    if (feed) {
+      const ax = x, ay = y + 0.3, az = z, bx = feed.pos[0], by = feed.pos[1] + LAMP_Y, bz = feed.pos[2] + LAMP_Z;
+      const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz) || 1, sx = -dz / len, sz = dx / len;       // sideways unit vector
+      const at = (t, out) => {
+        const arc = Math.sin(Math.PI * t), w = Math.sin(clock * 4 + t * 7) * 0.3 * arc;
+        return out.set(ax + dx * t + sx * w, ay + (by - ay) * t + 0.8 * arc, az + dz * t + sz * w);
+      };
+      u.beadMat.color.setHex(0x120A1A).lerp(tmpC.setHex(PAL.accent), 0.28);
+      u.beads.forEach((b, i) => { const t = i / (TEND_N - 1); at(t, b.position); b.scale.setScalar(0.17 - 0.1 * t); });
+      u.flow.forEach((sp, i) => { const t = 1 - ((clock * 0.9 + i / TEND_FLOW) % 1); at(t, sp.position); sp.material.opacity = 0.95 * Math.sin(Math.PI * t); });
+    }
+  }
+  for (const id in shadeObjs) if (shadeObjs[id].userData.seen !== crowdFrame) {      // the shade is gone
+    const u = shadeObjs[id].userData;
+    if (u.tendril) world.remove(u.tendril, u.stars);
+    delete shadeObjs[id];
+  }
+  flushInst(inst.body, n); flushInst(inst.tail, n); flushInst(inst.rim, n); flushInst(inst.eyes, 2 * n); flushInst(inst.blob, nb);
+}
+function updateMotes() {
+  const list = snap.motes || [], c = moteInst.core, g = moteInst.glow, camQ = camera.quaternion;
+  let n = 0;
+  for (const m of list) {
+    if (n >= MOTE_MAX) break;
+    const dropped = m.kind === "dropped", ph = clock * 3 + (m.pos[0] * 1.3 + m.pos[2] * 0.7);
+    let x, y, z, gh, ga, gs;
+    if (dropped) {
+      x = m.pos[0] + 0.25 * Math.cos(ph * 1.6); y = m.pos[1] + 0.55 + 0.12 * Math.abs(Math.sin(ph * 2.2)); z = m.pos[2] + 0.25 * Math.sin(ph * 1.6);
+      const blinkOn = m.ttl_s === null || m.ttl_s === undefined || m.ttl_s > 2 || Math.floor(clock * 8) % 2 === 0;
+      gh = 0xffc870; ga = blinkOn ? 0.95 : 0.15; gs = 1.0;
+    } else {
+      x = m.pos[0]; y = m.pos[1] + 0.7 + 0.18 * Math.sin(ph); z = m.pos[2];
+      gh = 0xFFE58A; ga = 0.8; gs = 1.25 + 0.15 * Math.sin(ph * 2);
+    }
+    _v.set(x, y, z);
+    _P.compose(_v, Q_ID, _s.setScalar(1)); setInst(c, n, _P, 0xFFF6C2, 1);
+    _P.compose(_v, camQ, _s.set(gs, gs, 1)); setInst(g, n, _P, gh, ga);     // glow: a camera-facing quad
+    n++;
+  }
+  flushInst(c, n); flushInst(g, n);
 }
 const DRIFT_SEG = 14;
 function makeDrifter() {
@@ -820,9 +1143,7 @@ function sync(objs, list, make) {
   const seen = new Set();
   for (const it of list) { seen.add(it.id); if (!objs[it.id]) objs[it.id] = make(it); }
   for (const id in objs) if (!seen.has(id)) {
-    const o = objs[id]; world.remove(o);
-    if (o.userData.shadow) scene.remove(o.userData.shadow);
-    if (o.userData.tendril) world.remove(o.userData.tendril);
+    world.remove(objs[id]);
     delete objs[id];
   }
 }
@@ -876,9 +1197,8 @@ let leafAmt = 0;
 // ================================================================ input
 const keys = {}, latched = {};
 let yaw = 0, pitch = 22, camDist = 10, dragging = false, lastX = 0, lastY = 0, showFps = URLQ.has("fps");
-const BTN_KEYS = { jump: ["Space"], interact: ["KeyE"], pulse: ["KeyF"], dash: ["ShiftLeft", "ShiftRight"] };
 function confirmPrimary() {
-  for (const id of ["settings", "pause", "result", "dawn", "intro", "menu"]) {
+  for (const id of ["settings", "leaderboard", "pause", "result", "dawn", "intro", "menu"]) {
     const el = $(id);
     if (!el.classList.contains("hidden")) {
       const b = [...el.querySelectorAll("[data-primary]")].find((x) => !x.classList.contains("hidden"));
@@ -887,25 +1207,36 @@ function confirmPrimary() {
     }
   }
 }
+const isTyping = (t) => !!t && (t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && /^(text|search)$/.test(t.type)));
 addEventListener("keydown", (e) => {
+  if (BENCH) return;                                   // the benchmark has no input
   ensureAudio();
-  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F3"].includes(e.code)) e.preventDefault();
-  if (e.code === "F3") { showFps = !showFps; $("fps").classList.toggle("hidden", !showFps); return; }
+  if (e.isComposing) return;                           // IME (Telex/VNI) composition in the name box
+  if (isTyping(e.target)) {                            // typing a leaderboard name: no game keys, Enter saves
+    if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.id === "name-input") { e.preventDefault(); saveScore(); }
+    return;
+  }
+  if (listening) { if (window.__ready) handleRebind(e); return; }       // waiting for the new key in Settings
+  const code = normCode(e.code);
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F3"].includes(code) || (code === "Space" && (ui === "play" || e.target.tagName !== "BUTTON"))) e.preventDefault();
+  if (ui === "play" && !e.ctrlKey && !e.metaKey && !e.altKey && Object.values(settings.keys).includes(code)) e.preventDefault();
+  if (code === "F3") { showFps = !showFps; $("fps").classList.toggle("hidden", !showFps); return; }
   if (!window.__ready) return;
-  if (!keys[e.code]) for (const [b, ks] of Object.entries(BTN_KEYS)) if (ks.includes(e.code)) latched[b] = true;
-  keys[e.code] = true;
+  if (!keys[code]) for (const a of BTN_ACTIONS) if (settings.keys[a] === code) latched[a] = true;
+  keys[code] = true;
   if (e.repeat) return;
-  if (e.code === "Escape" || e.code === "KeyP") {
-    if (ui === "play") pauseGame();
+  if (code === "Escape" || code === settings.keys.pause) {
+    if (!$("leaderboard").classList.contains("hidden")) closeLeaderboard();
+    else if (ui === "play") pauseGame();
     else if (ui === "paused" && $("settings").classList.contains("hidden")) resumeGame();
     else if (!$("settings").classList.contains("hidden")) closeSettings();
     return;
   }
-  if (e.code === "Enter" || e.code === "NumpadEnter") { e.preventDefault(); confirmPrimary(); }
+  if (code === "Enter" || code === "NumpadEnter") { e.preventDefault(); confirmPrimary(); }
 });
-addEventListener("keyup", (e) => { keys[e.code] = false; });
+addEventListener("keyup", (e) => { keys[normCode(e.code)] = false; });
 addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
-document.addEventListener("visibilitychange", () => { if (document.hidden && ui === "play") pauseGame(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && ui === "play" && !BENCH) pauseGame(); });
 renderer.domElement.addEventListener("pointerdown", (e) => { ensureAudio(); dragging = true; lastX = e.clientX; lastY = e.clientY; });
 addEventListener("pointerdown", () => ensureAudio());
 addEventListener("pointerup", () => { dragging = false; });
@@ -917,18 +1248,20 @@ addEventListener("pointermove", (e) => {
 });
 renderer.domElement.addEventListener("wheel", (e) => { camDist = Math.max(5, Math.min(28, camDist + Math.sign(e.deltaY) * 1.2)); e.preventDefault(); }, { passive: false });
 function buildFrame() {
+  if (BENCH) return { move: [0, 0], cam_yaw_deg: 0, jump: false, interact: false, pulse: false, dash: false };   // no player input
+  const kd = (a) => !!keys[settings.keys[a]];
   // contract: input z+ = forward (camera dir), input x+ = world +X at yaw 0 = screen-left (Phase-1 mapping)
-  const z = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
-  const x = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
+  const z = (kd("up") ? 1 : 0) - (kd("down") ? 1 : 0);
+  const x = (kd("left") ? 1 : 0) - (kd("right") ? 1 : 0);
   const f = { move: [x, z], cam_yaw_deg: Math.round(yaw * 1000) / 1000 };
-  for (const [b, ks] of Object.entries(BTN_KEYS)) { f[b] = ks.some((k) => keys[k]) || !!latched[b]; latched[b] = false; }
+  for (const b of BTN_ACTIONS) { f[b] = kd(b) || !!latched[b]; latched[b] = false; }
   return f;
 }
 function bind(id, fn) { $(id).addEventListener("click", (e) => { e.stopPropagation(); ensureAudio(); sfx.click(); e.currentTarget.blur(); if (window.__ready) fn(); }); }
 
 // ================================================================ game flow
 function show(id, on = true) { $(id).classList.toggle("hidden", !on); }
-function hideScreens() { for (const id of ["menu", "intro", "pause", "settings", "result", "dawn"]) show(id, false); }
+function hideScreens() { for (const id of ["menu", "intro", "pause", "settings", "leaderboard", "result", "dawn"]) show(id, false); }
 function goMenu() {
   if (endTimer) clearTimeout(endTimer);
   ui = "menu"; hideScreens(); show("hud", false); show("menu"); stopMusic();
@@ -943,6 +1276,7 @@ function startNight(n, { skipIntro = false } = {}) {
   mapData = simMap ? pyJSON(simMap(n)) : fallbackMap(n, snap);
   buildWorld(mapData);
   lastCount = null; windWarnSeen = false; windWasActive = false; lastReason = null;
+  clearCues();
   camTarget.set(...snap.player.pos);
   yaw = 0; pitch = 22;
   $("seed").textContent = "seed " + seed;
@@ -974,7 +1308,7 @@ function resumeGame() {
 }
 function restartNight() { startNight(night); }
 function openSettings(from) { settingsFrom = from; showSettingsValues(); show(from === "paused" ? "pause" : "menu", false); show("settings"); }
-function closeSettings() { show("settings", false); show(settingsFrom === "paused" ? "pause" : "menu"); }
+function closeSettings() { if (listening) cancelListen(); show("settings", false); show(settingsFrom === "paused" ? "pause" : "menu"); }
 function endNight() {
   const won = snap.state === "won";
   ui = "ending"; stopMusic();
@@ -1007,6 +1341,7 @@ function showResult(won) {
     `<tr><td>Tổng điểm (các Đêm thắng)</td><td>${total}</td></tr>`;
   show("btn-next", won); show("btn-retry", !won);
   $("btn-next").textContent = "Sang Đêm " + (night + 1);
+  mountNameForm("res-form-slot", !won);          // a loss on any Night: offer to save the score
 }
 function showDawn() {
   ui = "dawn"; hideScreens(); show("hud", false); show("dawn");
@@ -1014,6 +1349,7 @@ function showDawn() {
   $("dawn-total").textContent = total;
   $("dawn-table").innerHTML = [1, 2, 3].map((n) => `<tr><td>Đêm ${n} · ${ISLAND_NAMES[n]}</td><td>${runScores[n] ?? "—"}</td></tr>`).join("");
   scene.background.setHex(0x6a4a7a);
+  mountNameForm("dawn-form-slot", true);
 }
 let lastReason = null;
 bind("btn-start", () => startRun(1));
@@ -1031,11 +1367,160 @@ bind("btn-menu-result", goMenu);
 bind("btn-dawn-again", () => startRun(1));
 bind("btn-dawn-menu", goMenu);
 
+// ================================================================ leaderboard (Ticket-04 Part 3)
+// Saved through the server (POST /api/leaderboard -> ~/.dao-den-long/leaderboard.json). Without an API (the single-file /
+// Artifact build, file://, a plain static server) the same list lives in localStorage. The rules mirror game/leaderboard.py.
+const LB_KEY = "dao-den-long.leaderboard", LB_NAME_KEY = "dao-den-long.name", LB_MAX = 10;
+const NAME_RE = /^[\p{L}\p{N}_]{3,12}$/u;             // = Python's \w{3,12} after NFC: letters (Vietnamese too), digits, "_"
+let lbMem = [];                                       // used when localStorage is blocked
+let pending = null, lbFrom = "menu";
+function nameError(raw) {
+  const n = String(raw).normalize("NFC"), len = [...n].length;
+  if (len < 3) return "⚠ Tên quá ngắn: cần 3–12 ký tự.";
+  if (len > 12) return "⚠ Tên quá dài: tối đa 12 ký tự.";
+  if (!NAME_RE.test(n)) return "⚠ Tên chỉ gồm chữ, số hoặc dấu _ (không dấu cách, không ký tự đặc biệt).";
+  return null;
+}
+function rankEntries(es) {       // score desc, earlier achieved_at first, stable; top 10
+  return es.map((e, i) => ({ e, i })).sort((a, b) => (b.e.score - a.e.score) || (Date.parse(a.e.achieved_at) - Date.parse(b.e.achieved_at)) || (a.i - b.i)).map((x) => x.e).slice(0, LB_MAX);
+}
+function lbLocalLoad() {
+  try {
+    const j = JSON.parse(localStorage.getItem(LB_KEY));
+    if (j && Array.isArray(j.entries)) return rankEntries(j.entries.filter((e) => e && typeof e.name === "string" && Number.isFinite(e.score)));
+    return [];
+  } catch (e) { return rankEntries(lbMem); }
+}
+function lbLocalAdd(entry) {
+  const list = lbLocalLoad(); list.push(entry);
+  const ranked = rankEntries(list);
+  lbMem = ranked;
+  try { localStorage.setItem(LB_KEY, JSON.stringify({ entries: ranked })); } catch (e) { /* keep the in-memory copy */ }
+  const i = ranked.indexOf(entry);
+  return { entries: ranked, rank: i < 0 ? null : i + 1 };
+}
+async function lbApi(method, body) {       // -> {status, json} or null when there is no usable API
+  try {
+    const r = await fetch("/api/leaderboard", { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+    let json = null; try { json = await r.json(); } catch (e) { /* not JSON */ }
+    return { status: r.status, json };
+  } catch (e) { return null; }
+}
+function mountNameForm(slotId, on) {
+  const f = $("nameform");
+  if (!on) { f.classList.add("hidden"); pending = null; return; }
+  $(slotId).appendChild(f);
+  const score = Object.values(runScores).reduce((a, b) => a + b, 0);
+  pending = { score, nights_won: Object.keys(runScores).length, seed };
+  $("nameform-edit").classList.remove("hidden"); $("nameform-done").classList.add("hidden");
+  $("name-msg").textContent = ""; $("btn-save-score").disabled = false;
+  let last = ""; try { last = localStorage.getItem(LB_NAME_KEY) || ""; } catch (e) { /* ignore */ }
+  $("name-input").value = last;
+  f.classList.remove("hidden");
+}
+function setNameMsg(t) { $("name-msg").textContent = t; }
+async function saveScore() {
+  if (!pending || $("btn-save-score").disabled) return;
+  const raw = $("name-input").value, err = nameError(raw);
+  if (err) { setNameMsg(err); return; }
+  setNameMsg(""); $("btn-save-score").disabled = true;
+  const entry = { name: raw.normalize("NFC"), score: pending.score, nights_won: pending.nights_won, seed: pending.seed };
+  const res = await lbApi("POST", entry);
+  let rank = null, via = "server";
+  if (res && res.status === 400) {                                  // the server refused the entry: show why, let the player fix it
+    setNameMsg("⚠ " + ((res.json && (res.json.error || res.json.message)) || "Tên không hợp lệ.")); $("btn-save-score").disabled = false; return;
+  }
+  if (res && res.status >= 200 && res.status < 300 && res.json && Array.isArray(res.json.entries)) rank = res.json.rank ?? null;
+  else { via = "local"; rank = lbLocalAdd({ ...entry, achieved_at: new Date().toISOString() }).rank; }
+  try { localStorage.setItem(LB_NAME_KEY, entry.name); } catch (e) { /* ignore */ }
+  const where = via === "server" ? "" : " (lưu trên trình duyệt này)";
+  $("name-saved").textContent = (rank ? `Đã lưu ${entry.name}: hạng ${rank}, ${entry.score} điểm.` : `Đã lưu ${entry.name}: ${entry.score} điểm, chưa vào top ${LB_MAX}.`) + where;
+  $("nameform-edit").classList.add("hidden"); $("nameform-done").classList.remove("hidden");
+  window.__lastSave = { via, rank, entry };
+  pending = null;
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso || "");
+  try { return d.toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }); } catch (e) { return d.toISOString().slice(0, 16).replace("T", " "); }
+}
+function renderLeaderboard(entries, source) {
+  const body = $("lb-body"); body.innerHTML = "";
+  entries.slice(0, LB_MAX).forEach((e, i) => {
+    const tr = document.createElement("tr");
+    const cells = [[String(i + 1), "num"], [e.name, ""], [String(e.score), "num"], [String(e.nights_won), "num"], [fmtDate(e.achieved_at), ""]];
+    for (const [t, cls] of cells) { const td = document.createElement("td"); td.textContent = t; if (cls) td.className = cls; tr.appendChild(td); }
+    body.appendChild(tr);
+  });
+  show("lb-empty", entries.length === 0);
+  $("lb-table").classList.toggle("hidden", entries.length === 0);
+  $("lb-source").textContent = source === "server" ? "Lưu trên máy này (file ~/.dao-den-long/leaderboard.json)." : "Lưu trên trình duyệt này (localStorage).";
+}
+async function openLeaderboard(from) {
+  lbFrom = from; hideScreens(); show("leaderboard");
+  $("lb-body").innerHTML = ""; $("lb-source").textContent = "Đang tải…";
+  const res = await lbApi("GET");
+  if (res && res.status === 200 && res.json && Array.isArray(res.json.entries)) { renderLeaderboard(rankEntries(res.json.entries), "server"); window.__lbSource = "server"; }
+  else { renderLeaderboard(lbLocalLoad(), "local"); window.__lbSource = "local"; }
+  window.__lbReady = true;
+}
+function closeLeaderboard() {
+  show("leaderboard", false);
+  show(lbFrom === "result" ? "result" : lbFrom === "dawn" ? "dawn" : "menu");
+}
+bind("btn-leaderboard", () => { window.__lbReady = false; openLeaderboard("menu"); });
+bind("btn-lb-back", closeLeaderboard);
+bind("btn-save-score", saveScore);
+bind("btn-view-lb", () => { window.__lbReady = false; openLeaderboard(ui === "dawn" ? "dawn" : "result"); });
+
 // ================================================================ events from the sim -> sound / fx / toasts
 let lastCount = null, windWarnSeen = false, windWasActive = false, toastTimer = null;
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; show("toast"); t.style.opacity = 1;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = 0; setTimeout(() => show("toast", false), 400); }, 2200);
+}
+// ---- captions and visual cues (Ticket-04 Part 4): every important sound / change also shows as text + an icon.
+// Bóng Mực appears (with an arrow at the screen edge toward it), wind is coming, last 10 s, a lantern has fuel < 30.
+const spawnArrows = new Map(), lowSeen = new Set();
+let last10Shown = false;
+function caption(msg, warn = false, ms = 5000) {
+  if (!settings.captions) return;
+  const box = $("captions"), d = document.createElement("div");
+  d.className = "cap" + (warn ? " warn" : ""); d.textContent = (warn ? "⚠ " : "") + msg;
+  box.appendChild(d);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => d.remove(), ms);
+}
+function clearCues() {
+  $("captions").innerHTML = "";
+  for (const a of spawnArrows.values()) a.el.remove();
+  spawnArrows.clear(); lowSeen.clear(); last10Shown = false;
+}
+function dirWord(dx, dz) {         // where a point is relative to the camera: phía trước / sau, bên trái / phải
+  const th = yaw * Math.PI / 180;
+  const fwd = dx * Math.sin(th) + dz * Math.cos(th), right = dz * Math.sin(th) - dx * Math.cos(th);
+  const a = Math.atan2(right, fwd) * 180 / Math.PI;
+  return Math.abs(a) <= 45 ? "phía trước" : Math.abs(a) >= 135 ? "phía sau" : a > 0 ? "bên phải" : "bên trái";
+}
+function cueShadeSpawn(id) {
+  const s = (snap.shades || []).find((x) => x.id === id);
+  if (!s) return;
+  const p = snap.player.pos, dist = Math.round(Math.hypot(s.pos[0] - p[0], s.pos[2] - p[2]));
+  caption(`Bóng Mực xuất hiện ${dirWord(s.pos[0] - p[0], s.pos[2] - p[2])}, cách ${dist} m!`, true);
+  if (!settings.captions || spawnArrows.has(id)) return;
+  const el = document.createElement("div"); el.className = "edgearrow shade";
+  el.innerHTML = '<div class="tri"></div><div class="lbl">Bóng Mực</div>';
+  $("hud").appendChild(el);
+  spawnArrows.set(id, { el, until: clock + 5 });
+  while (spawnArrows.size > 4) { const k = spawnArrows.keys().next().value; spawnArrows.get(k).el.remove(); spawnArrows.delete(k); }
+}
+function cuesPerTick() {           // called after every sim tick while playing
+  const t = snap.time_left_s;
+  if (!last10Shown && t <= 10 && t > 0 && snap.state === "playing") { last10Shown = true; caption("10 giây cuối! Giữ cho đủ đèn sáng.", true); }
+  for (const l of snap.lanterns) {
+    if (isLow(l)) { if (!lowSeen.has(l.id)) { lowSeen.add(l.id); caption(`Đèn ${l.id} sắp hết dầu (${Math.round(l.fuel)}/${fuelMax()}). Châm dầu!`, true); } }
+    else lowSeen.delete(l.id);
+  }
 }
 function onEvent(ev) {
   const d = ev.data || {};
@@ -1048,7 +1533,7 @@ function onEvent(ev) {
     case "fuel_drain": sfx.drain(); break;
     case "pulse": sfx.pulse(); pulseT = 0; pulseAt = snap.player.pos.slice(); break;
     case "player_hit": sfx.hit(); hitFx = 1; if (d.by === "fall") toast("Mây rơi khỏi đảo! −1 Ngọn Lửa"); break;
-    case "shade_spawned": sfx.spawn(); break;
+    case "shade_spawned": sfx.spawn(); cueShadeSpawn(d.id); break;
     case "dash": sfx.dash(); dashFx = 0.22; break;
     case "charm_picked": sfx.charm(); toast("Bùa Gió! Chạy nhanh hơn, Lướt không hồi chiêu"); break;
     case "drifter_steal": sfx.steal(); toast(`Gió Lạc cướp ${d.amount} đom đóm!`); break;
@@ -1074,6 +1559,7 @@ function simTick() {
   prevSnap = snap; snap = r.snap; extra = r.extra || {};
   for (const ev of r.events || []) onEvent(ev);
   frameSounds(prevSnap, snap);
+  cuesPerTick();
   if (snap.state !== "playing") endNight();
 }
 function advance(dt) {
@@ -1113,6 +1599,7 @@ function updateHud(force) {
     $("flames").innerHTML = fl;
     $("timer").textContent = fmtTime(snap.time_left_s);
     $("timer").classList.toggle("danger", snap.time_left_s <= 30);
+    $("timer").classList.toggle("last10", snap.time_left_s <= 10);          // last 10 s: also an outline, not only colour / blink
     $("lanterns").textContent = `${lit}/${n}`;
     $("need").textContent = `(cần ${need})`;
     $("need").className = "need " + (lit >= need ? "ok" : "low warn");
@@ -1136,7 +1623,8 @@ function updateHud(force) {
   show("prompt", !!near);
   if (near) {
     const l = near[0], cost = l.ever_lit ? (TUNING.relight_cost || 5) : TUNING.lantern_cost;
-    $("prompt").innerHTML = (l.lit ? `<kbd>E</kbd> — Châm dầu (${Math.round(l.fuel)})` : `<kbd>E</kbd> — Nạp ánh sáng (${l.deposited}/${cost})`)
+    const kk = `<kbd>${keyLabel(settings.keys.interact)}</kbd>`;
+    $("prompt").innerHTML = (l.lit ? `${kk} — Châm dầu (${Math.round(l.fuel)})` : `${kk} — Nạp ánh sáng (${l.deposited}/${cost})`)
       + (p.carried ? "" : " · cần đom đóm");
   }
   // wind warning
@@ -1149,27 +1637,37 @@ function updateHud(force) {
     $("winddir").style.transform = `rotate(${Math.atan2(-fwd, right) * 180 / Math.PI}deg)`;
   }
   show("respawn", !!extra.respawning && ui === "play");
-  $("vignette").style.opacity = hitFx > 0 ? hitFx : (p.flames === 1 ? 0.25 + 0.1 * Math.sin(clock * 4) : 0);
+  // reduced motion: no red screen flash when hit and no pulsing vignette at 1 flame (a steady, dim vignette stays)
+  $("vignette").style.opacity = settings.reduced ? (p.flames === 1 ? 0.25 : 0)
+    : hitFx > 0 ? hitFx : (p.flames === 1 ? 0.25 + 0.1 * Math.sin(clock * 4) : 0);
 }
 const tmpV = new THREE.Vector3(), tmpC = new THREE.Color();
-function updateArrow() {
-  const a = $("arrow");
-  const nu = ui === "play" ? nearestLantern(Infinity, needsAttention) : null;
-  if (!nu) { show("arrow", false); return; }
-  const [l, d] = nu;
-  tmpV.set(l.pos[0], l.pos[1] + 2.5, l.pos[2]).project(camera);
+// puts an edge arrow element toward a world point; returns false (and leaves it) when the point is on screen and !always
+function edgePlace(el, wx, wy, wz, always) {
+  tmpV.set(wx, wy, wz).project(camera);
   const behind = tmpV.z > 1;
   const on = !behind && Math.abs(tmpV.x) <= 0.98 && Math.abs(tmpV.y) <= 0.98;
-  if (on) { show("arrow", false); return; }
+  if (on && !always) return false;
   let x = tmpV.x, y = tmpV.y;
   if (behind) { x = -x; y = -y; if (Math.abs(x) < 1e-3 && Math.abs(y) < 1e-3) y = -1; }
   const W = innerWidth / 2, H = innerHeight / 2, ang = Math.atan2(-y * H, x * W);
-  const m = 60, sx = Math.cos(ang), sy = Math.sin(ang);
-  const t = Math.min((W - m) / Math.max(1e-6, Math.abs(sx)), (H - m) / Math.max(1e-6, Math.abs(sy)));
-  show("arrow");
-  a.style.transform = `translate(${W + sx * t}px, ${H + sy * t}px)`;
-  a.querySelector(".tri").style.transform = `rotate(${ang}rad)`;
-  $("arrowlbl").textContent = `${l.id} · ${Math.round(d)}m`;
+  const sx = Math.cos(ang), sy = Math.sin(ang);
+  const t = Math.min((W - 84) / Math.max(1e-6, Math.abs(sx)), (H - 72) / Math.max(1e-6, Math.abs(sy)));
+  el.style.transform = `translate(${W + sx * t}px, ${H + sy * t}px)`;
+  el.querySelector(".tri").style.transform = `rotate(${ang}rad)`;
+  return true;
+}
+function updateArrow() {
+  const a = $("arrow");
+  const nu = ui === "play" ? nearestLantern(Infinity, needsAttention) : null;
+  if (!nu || !edgePlace(a, nu[0].pos[0], nu[0].pos[1] + 2.5, nu[0].pos[2], false)) show("arrow", false);
+  else { show("arrow"); $("arrowlbl").textContent = `${nu[0].id} · ${Math.round(nu[1])}m`; }
+  // arrows toward Bóng Mực that just appeared (5 s), always at the screen edge
+  for (const [id, sa] of spawnArrows) {
+    const sh = (snap.shades || []).find((x) => x.id === id);
+    if (!sh || clock > sa.until || ui !== "play" || !settings.captions) { sa.el.remove(); spawnArrows.delete(id); continue; }
+    edgePlace(sa.el, sh.pos[0], sh.pos[1] + 0.8, sh.pos[2], true);
+  }
 }
 
 // ================================================================ render
@@ -1178,6 +1676,7 @@ let facing = 0, fpsFrames = 0, fpsT = 0;
 window.__frames = 0;
 function loop(now) {
   requestAnimationFrame(loop);
+  if (BENCH) { benchFrame(now); return; }
   const dt = Math.min(0.25, (now - last) / 1000);
   last = now; clock += dt; window.__frames++;
   if (keys.ArrowLeft) yaw += 120 * dt;
@@ -1198,6 +1697,20 @@ function render(dt) {
   ambient.intensity = 0.15 + 0.55 * frac;
   if (ui !== "dawn") scene.background.copy(SKY).lerp(MIST, frac * 0.6);
   scene.fog.density = fogBase * (1 - 0.45 * frac);
+
+  // ---- camera (third person, yaw = cam_yaw_deg sent to the sim). Reduced motion: no camera shake.
+  // Benchmark: a fixed circle around (0,0,0), radius 30 m, 15 m up, 15 s per lap, counter-clockwise, always looking at the centre.
+  if (BENCH) {
+    const a = 2 * Math.PI * benchT / BENCH_LAP_S;
+    camera.position.set(30 * Math.cos(a), 15, 30 * Math.sin(a)); camera.lookAt(0, 0, 0);
+  } else {
+    camTarget.lerp(tmpV.set(p.pos[0], p.pos[1], p.pos[2]), Math.min(1, dt * 10));
+    const th = yaw * Math.PI / 180, ph = pitch * Math.PI / 180, shake = settings.reduced ? 0 : hitFx * 0.25;
+    camera.position.set(camTarget.x - camDist * Math.sin(th) * Math.cos(ph) + (Math.random() - 0.5) * shake,
+      camTarget.y + 1.4 + camDist * Math.sin(ph), camTarget.z - camDist * Math.cos(th) * Math.cos(ph));
+    camera.lookAt(camTarget.x, camTarget.y + 1.4, camTarget.z);
+  }
+  camera.updateMatrixWorld();             // billboards, fuel bars and the edge arrows below read this frame's camera
 
   // ---- Mây
   player.position.set(p.pos[0], p.pos[1], p.pos[2]);
@@ -1250,67 +1763,12 @@ function render(dt) {
     u.meter.visible = !l.lit && f > 0;
     if (u.meter.visible && f !== u.lastF) { u.meter.geometry.dispose(); u.meter.geometry = new THREE.RingGeometry(0.75, 0.95, 32, 1, Math.PI / 2, -Math.PI * 2 * f); u.lastF = f; }
     u.meter.lookAt(camera.position);
-    if (u.flash > 0) { u.flash = Math.max(0, u.flash - dt * 0.8); u.halo.scale.setScalar(7 + 18 * u.flash); } else u.halo.scale.setScalar(7);
+    if (u.flash > 0) { u.flash = Math.max(0, u.flash - dt * 0.8); u.halo.scale.setScalar(settings.reduced ? 7 : 7 + 18 * u.flash); } else u.halo.scale.setScalar(7);
   }
 
-  // ---- motes (random vs dropped)
-  sync(moteObjs, snap.motes || [], makeMote);
-  for (const m of snap.motes || []) {
-    const o = moteObjs[m.id], dropped = m.kind === "dropped", ph = clock * 3 + (m.pos[0] * 1.3 + m.pos[2] * 0.7);
-    if (dropped) {
-      o.position.set(m.pos[0] + 0.25 * Math.cos(ph * 1.6), m.pos[1] + 0.55 + 0.12 * Math.abs(Math.sin(ph * 2.2)), m.pos[2] + 0.25 * Math.sin(ph * 1.6));
-      const blinkOn = m.ttl_s === null || m.ttl_s === undefined || m.ttl_s > 2 || Math.floor(clock * 8) % 2 === 0;
-      o.userData.h.material.color.setHex(0xffc870); o.userData.h.material.opacity = blinkOn ? 0.95 : 0.15;
-      o.userData.h.scale.setScalar(1.0);
-    } else {
-      o.position.set(m.pos[0], m.pos[1] + 0.7 + 0.18 * Math.sin(ph), m.pos[2]);
-      o.userData.h.material.color.setHex(0xFFE58A); o.userData.h.material.opacity = 0.8;
-      o.userData.h.scale.setScalar(1.25 + 0.15 * Math.sin(ph * 2));
-    }
-  }
-
-  // ---- shades (state-based look)
-  sync(shadeObjs, snap.shades || [], makeShade);
-  for (const s of snap.shades || []) {
-    const o = shadeObjs[s.id], u = o.userData, st = s.state;
-    o.position.set(s.pos[0], s.pos[1] + 0.12 * Math.sin(clock * 4 + s.pos[0]), s.pos[2]);
-    o.lookAt(p.pos[0], o.position.y, p.pos[2]);
-    // rim + eyes use the Bóng Mực accent (#7A3CFF, or #00B3FF in the colour-blind palette); chase eyes use the warning colour
-    let scale = 1, body = 0x120A1A, rim = PAL.accent, rimA = 0.45, eye = PAL.accent, op = 0.95;
-    if (st === "spawning") { scale = 0.35 + 0.5 * Math.min(1, (clock - u.born)); rimA = 0.8; op = 0.6; }
-    else if (st === "chase") { rimA = 0.75 + 0.15 * Math.sin(clock * 10); eye = PAL.warn; scale = 1.05; }
-    else if (st === "drain") { rimA = 0.6 + 0.25 * Math.sin(clock * 6); scale = 1.1 + 0.05 * Math.sin(clock * 9); }
-    else if (st === "recoil") { scale = 0.85; rimA = 0.25; op = 0.6 + 0.3 * Math.sin(clock * 30); }
-    else if (st === "stunned") { body = 0x3A3450; rim = 0x6d6690; rimA = 0.3; eye = 0x8a84a8; scale = 0.9 + 0.04 * Math.sin(clock * 20); }
-    u.bodyMat.color.setHex(body); u.bodyMat.emissive.setHex(body); u.bodyMat.opacity = op;
-    u.rimMat.color.setHex(rim); u.rimMat.opacity = rimA; u.eyeMat.color.setHex(eye);
-    u.stars.visible = st === "stunned"; u.stars.rotation.y = clock * 4;
-    o.scale.setScalar(scale);
-    // draining: a dark tendril reaches the lantern it is feeding on (nearest lit lantern, preferring one that is already low)
-    let feed = null;
-    if (st === "drain") {
-      let bd = Infinity;
-      for (const l of snap.lanterns) {
-        if (!l.lit) continue;
-        const d = Math.hypot(l.pos[0] - s.pos[0], l.pos[2] - s.pos[2]) - (isLow(l) ? 1 : 0);
-        if (d < bd) { bd = d; feed = l; }
-      }
-    }
-    u.tendril.visible = !!feed;
-    if (feed) {
-      const ax = o.position.x, ay = o.position.y + 0.3, az = o.position.z, bx = feed.pos[0], by = feed.pos[1] + LAMP_Y, bz = feed.pos[2] + LAMP_Z;
-      const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz) || 1, sx = -dz / len, sz = dx / len;       // sideways unit vector
-      const at = (t, out) => {
-        const arc = Math.sin(Math.PI * t), w = Math.sin(clock * 4 + t * 7) * 0.3 * arc;
-        return out.set(ax + dx * t + sx * w, ay + (by - ay) * t + 0.8 * arc, az + dz * t + sz * w);
-      };
-      u.beadMat.color.setHex(0x120A1A).lerp(tmpC.setHex(PAL.accent), 0.28);
-      u.beads.forEach((b, i) => { const t = i / (TEND_N - 1); at(t, b.position); b.scale.setScalar(0.17 - 0.1 * t); });
-      u.flow.forEach((sp, i) => { const t = 1 - ((clock * 0.9 + i / TEND_FLOW) % 1); at(t, sp.position); sp.material.opacity = 0.95 * Math.sin(Math.PI * t); });
-    }
-    const sg = vGround(mapData, s.pos[0], s.pos[2]);
-    u.shadow.visible = sg !== null; if (sg !== null) u.shadow.position.set(s.pos[0], sg + 0.03, s.pos[2]);
-  }
+  // ---- motes (random vs dropped) and shades (state-based look): instanced, see updateMotes / updateShades
+  updateMotes();
+  updateShades(p);
 
   // ---- drifters (grey-blue ribbon #8FA3B8)
   sync(drifterObjs, snap.drifters || [], makeDrifter);
@@ -1352,7 +1810,7 @@ function render(dt) {
     pulseT = Math.min(1, pulseT + dt * 2.6);
     const r = TUNING.pulse_radius * (0.2 + 0.8 * Math.sqrt(pulseT));
     pulseSphere.scale.setScalar(r); pulseSphere.position.set(pulseAt[0], pulseAt[1] + 0.8, pulseAt[2]);
-    pulseSphere.material.opacity = 0.35 * (1 - pulseT);
+    pulseSphere.material.opacity = (settings.reduced ? 0 : 0.35) * (1 - pulseT);   // reduced motion: no flash sphere, the ring stays
     pulseRing.scale.setScalar(r); pulseRing.position.set(pulseAt[0], pulseAt[1] + 0.08, pulseAt[2]);
     pulseRing.material.opacity = 0.9 * (1 - pulseT);
   } else { pulseSphere.material.opacity = 0; pulseRing.material.opacity = 0; }
@@ -1360,7 +1818,7 @@ function render(dt) {
 
   // ---- wind leaves (warning: few leaves + whoosh; active: many)
   const ww = extra.wind_warning, wa = snap.wind && snap.wind.active;
-  if (ww !== null && ww !== undefined && !windWarnSeen) { windWarnSeen = true; sfx.wind(); }
+  if (ww !== null && ww !== undefined && !windWarnSeen) { windWarnSeen = true; sfx.wind(); caption("Gió sắp thổi! Đứng vững, tránh mép đảo.", true); }
   if (ww === null || ww === undefined) windWarnSeen = false;
   if (wa && !windWasActive) sfx.wind();
   windWasActive = !!wa;
@@ -1376,30 +1834,95 @@ function render(dt) {
     });
   } else leaves.forEach((l) => { l.material.opacity = 0; });
 
-  // ---- camera (third person, yaw = cam_yaw_deg sent to the sim)
-  camTarget.lerp(tmpV.set(p.pos[0], p.pos[1], p.pos[2]), Math.min(1, dt * 10));
-  const th = yaw * Math.PI / 180, ph = pitch * Math.PI / 180, shake = hitFx * 0.25;
-  camera.position.set(camTarget.x - camDist * Math.sin(th) * Math.cos(ph) + (Math.random() - 0.5) * shake,
-    camTarget.y + 1.4 + camDist * Math.sin(ph), camTarget.z - camDist * Math.cos(th) * Math.cos(ph));
-  camera.lookAt(camTarget.x, camTarget.y + 1.4, camTarget.z);
-  updateHud(false);
-  updateArrow();
+  if (!BENCH) { updateHud(false); updateArrow(); }
   renderer.render(scene, camera);
+}
+
+// ================================================================ benchmark (Ticket-04 Part 1; ?bench=1&seed=42&duration=30)
+// Fixed 1280x720 canvas, Night 1 with full effects and lighting, 200 shades + 100 motes (sim.web_bench_new), no UI, no input.
+// Camera circles (0,0,0): radius 30 m, Y = 15 m, counter-clockwise, 15 s per lap, starting at (30,15,0).
+// The first 3 s are warm-up; then the rAF dt of every frame is recorded for exactly `duration` s and POSTed to /api/bench
+// (bench.py turns that into bench.json). The sim still steps at 60 ticks/s like in play.
+const BENCH_LAP_S = 15, BENCH_WARMUP_S = 3;
+let benchT = 0;
+const bench = { ready: false, t0: null, prev: null, firstEpoch: null, measuring: false, sum: 0, dts: [], done: false, duration: 30, seed: 42 };
+function gpuString() {
+  try {
+    const gl = renderer.getContext(), ext = gl.getExtension("WEBGL_debug_renderer_info");
+    return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+  } catch (e) { return "unknown GPU"; }
+}
+function shortUA() {
+  const ua = navigator.userAgent || "";
+  let m;
+  if ((m = ua.match(/Edg\/(\d+)/))) return "Edge " + m[1];
+  if ((m = ua.match(/Firefox\/(\d+)/))) return "Firefox " + m[1];
+  if ((m = ua.match(/Chrome\/(\d+)/))) return (/Headless/.test(ua) ? "HeadlessChrome " : "Chrome ") + m[1];
+  if ((m = ua.match(/Version\/(\d+).*Safari/))) return "Safari " + m[1];
+  return ua.slice(0, 40);
+}
+function startBench() {
+  const sd = URLQ.get("seed"), du = URLQ.get("duration");
+  bench.seed = sd !== null && Number.isFinite(+sd) ? (+sd | 0) : 42;
+  bench.duration = du !== null && Number.isFinite(+du) && +du > 0 ? +du : 30;
+  if (!simBenchNew) throw new Error("sim.web_bench_new is missing (game/sim.py is older than Ticket-04)");
+  seed = bench.seed; night = 1;
+  const r = pyJSON(simBenchNew(bench.seed));
+  snap = r.snap; prevSnap = null; extra = r.extra || {};
+  mapData = pyJSON(simMap(1));
+  buildWorld(mapData);
+  camTarget.set(...snap.player.pos);
+  show("loading", false);
+  ui = "play"; acc = 0; last = performance.now();
+  bench.ready = true;
+  window.__ready = true;
+}
+function benchFrame(now) {
+  if (!bench.ready || bench.done) return;
+  const b = bench;
+  if (b.t0 === null) { b.t0 = now; last = now; }
+  const dt = Math.min(0.25, (now - last) / 1000);
+  last = now; clock += dt; window.__frames++;
+  benchT = (now - b.t0) / 1000;
+  advance(dt);                                  // 60 ticks per second, like in play
+  render(dt);
+  if (b.firstEpoch === null) b.firstEpoch = Math.round(performance.timeOrigin + performance.now());     // first bench frame is on its way to the screen
+  if (!b.measuring && benchT >= BENCH_WARMUP_S) b.measuring = true;
+  if (b.measuring && b.prev !== null) {
+    const d = now - b.prev;
+    b.dts.push(Math.round(d * 1000) / 1000); b.sum += d;
+    if (b.sum >= b.duration * 1000 - 1e-6) benchFinish();
+  }
+  b.prev = now;
+}
+async function benchFinish() {
+  const b = bench;
+  b.done = true;
+  const payload = { first_frame_epoch_ms: b.firstEpoch, dts_ms: b.dts, renderer: `${gpuString()} · ${shortUA()}`, warmup_s: BENCH_WARMUP_S };
+  window.__benchPayload = payload;
+  try {
+    const r = await fetch("/api/bench", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    window.__benchDone = { ok: r.ok, status: r.status, frames: b.dts.length };
+    if (!r.ok) console.error("POST /api/bench failed: HTTP " + r.status);
+  } catch (e) { window.__benchDone = { ok: false, error: String(e) }; console.error("POST /api/bench failed: " + e); }
+  document.title = "bench " + (window.__benchDone.ok ? "done" : "failed");
 }
 
 // ================================================================ boot
 // small API used by tools/web_check.py and handy from the console
 window.game = { startRun, startNight, beginPlay, pauseGame, resumeGame, restartNight, goMenu, openSettings, closeSettings,
   get ui() { return ui; }, get night() { return night; }, get runScores() { return runScores; }, settings, saveSettings,
-  setCam(d, p) { camDist = d; if (p !== undefined) pitch = p; } };
+  setCam(d, p) { camDist = d; if (p !== undefined) pitch = p; },
+  benchInfo: () => ({ shades: shadeInst.body.count, motes: moteInst.core.count, frames: bench.dts.length, done: bench.done }) };
 if (showFps) show("fps");
 camera.position.set(0, 30, -60); camera.lookAt(0, 0, 0);
 requestAnimationFrame(loop);
 loadSim().then(() => {
+  if (BENCH) { startBench(); return; }
   show("loading", false);
   ui = "menu"; show("menu");
   window.__ready = true;
-}).catch((e) => { $("loadmsg").textContent = "Lỗi tải game: " + e.message; console.error(e); });
+}).catch((e) => { $("loadmsg").textContent = "Lỗi tải game: " + e.message; console.error(e); window.__loadError = String(e.message || e); });
 </script>
 </body>
 </html>

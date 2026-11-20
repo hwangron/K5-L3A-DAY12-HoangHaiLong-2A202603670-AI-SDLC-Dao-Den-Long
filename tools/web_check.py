@@ -1,9 +1,11 @@
 """Drive the real web build in headless Chromium and save proof screenshots.
 
 Needs: pip install playwright && python -m playwright install chromium
-Run:   PHASE=phase-3 python tools/web_check.py      -> docs/proof/$PHASE/web/  (PHASE default phase-3)
+Run:   PHASE=phase-4 python tools/web_check.py      -> docs/proof/$PHASE/web/  (PHASE default phase-4)
+Servers: the real serve.make_server (API + bench sink, leaderboard file in a temp dir) on PORT, and a plain static
+server (no API) on PORT + 1 to test the localStorage fallback.
 Checks:
-  - page loads with no JS errors; main menu -> night intro -> play (WASD moves Mây)
+  - page loads with no JS errors; main menu -> night intro -> play (WASD moves Mây); vendor-first loading
   - browser (Pyodide) and CPython give identical snapshots + events for the same seed+frames (night 1 AND night 3)
     plus a Ticket-03 scenario run (refuel, lantern_out, fuel_drain, a draining shade)
   - pause (Esc) stops web_step entirely (tick frozen), resume continues
@@ -15,6 +17,16 @@ Checks:
   - nights 2 and 3 load their maps via the page's own functions (screenshots), night-3 wind warning shows
   - game over -> replay resets the night
   - win chain night 1 -> 2 -> 3 -> Dawn screen with total = sum of won nights
+  - Ticket-04 benchmark page (?bench=1&seed=42&duration=3): fixed 1280x720 canvas, no UI, 200 shades + 100 motes as
+    instances, camera on the 30 m / 15 m circle, 3 s warm-up, then exactly `duration` s of rAF dts POSTed to /api/bench
+    (valid payload; benchstats.compute works on it)
+  - Ticket-04 leaderboard: name entry after Dawn and after losses (validation errors, Vietnamese name, NFC, Enter key),
+    saved through the API to the leaderboard file, leaderboard screen order (score desc, earlier first on ties),
+    back navigation, and the localStorage fallback on a server without the API (survives a reload)
+  - Ticket-04 accessibility: key remapping (persists, duplicate + reserved-key warnings, reset to defaults, the new keys
+    really drive the input frame, remapped pause key), captions + edge arrow on shade spawn, wind soon, last 10 s and
+    fuel < 30, reduced motion (no camera shake / screen flash) and large text persist, every UI font >= 18 px at
+    1280x720 (>= 22.5 px with large text) by computed style
   - average FPS over 5 s at 1280x720 (headless Chromium = software GL, so this is a lower bound)
 """
 import functools
@@ -22,16 +34,25 @@ import http.server
 import json
 import os
 import sys
+import tempfile
 import threading
+import time
+import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from game import sim  # noqa: E402
+LB_FILE = os.path.join(tempfile.mkdtemp(prefix="ddl-webcheck-"), "leaderboard.json")
+os.environ["DDL_LEADERBOARD"] = LB_FILE          # before serve / leaderboard read it: never touch the player's real file
+from game import benchstats, leaderboard, sim  # noqa: E402
+import serve  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
-PHASE = os.environ.get("PHASE", "phase-3")
+PHASE = os.environ.get("PHASE", "phase-4")
 OUT = os.path.join(ROOT, "docs", "proof", PHASE, "web")
 PORT = 8765
+PORT_STATIC = PORT + 1
+BENCH_RESULTS = []                               # payloads POSTed to /api/bench (the bench sink of the real server)
+MIN_FONT_PX = 18.0
 
 
 def _frame(move=(0.0, 0.0), yaw=0.0, **btn):
@@ -98,9 +119,17 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-def serve():
+def serve_api():
+    """The real server (game files + /api/leaderboard + /api/bench into BENCH_RESULTS)."""
+    httpd = serve.make_server(PORT, bench_sink=BENCH_RESULTS.append, quiet=True)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd
+
+
+def serve_static():
+    """A plain static server: no /api at all (what a single-file / Artifact build sees) -> localStorage fallback."""
     h = functools.partial(_Quiet, directory=ROOT)
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), h)
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", PORT_STATIC), h)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd
 
@@ -188,9 +217,418 @@ def measure_fps(pg, seconds=5.0):
     return round((f1 - f0) / ((t1 - t0) / 1000.0), 1)
 
 
+def watch(pg, errors, no_api=False):
+    """Collect JS errors. A 404 of web/vendor/* is expected when tools/fetch_vendor.py was not run (CDN fallback);
+    on the static server (no_api) the failing /api/* requests are the fallback being exercised."""
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+
+    def on_console(m):
+        if m.type != "error":
+            return
+        url = (m.location or {}).get("url", "")
+        if "Failed to load resource" in m.text and ("/vendor/" in url or (no_api and "/api/" in url)):
+            return
+        errors.append(m.text)
+    pg.on("console", on_console)
+
+
+def wait_ready(pg):
+    pg.wait_for_function("window.__ready === true", timeout=180000)
+
+
+FONT_CHECK = """(minPx) => {
+  const skip = new Set(["SCRIPT", "STYLE", "TITLE", "NOSCRIPT", "HEAD", "HTML", "META", "LINK"]);
+  const bad = []; let checked = 0;
+  for (const el of document.body.querySelectorAll("*")) {
+    if (skip.has(el.tagName)) continue;
+    const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    const field = el.tagName === "INPUT" && el.type === "text";
+    if (!own && !field) continue;
+    checked++;
+    const fs = parseFloat(getComputedStyle(el).fontSize);
+    if (fs < minPx - 0.01) bad.push([el.id || el.className || el.tagName, fs, (el.textContent || "").trim().slice(0, 24)]);
+  }
+  return { bad, checked };
+}"""
+
+
+def font_check(pg, min_px):
+    r = pg.evaluate(FONT_CHECK, min_px)
+    return r["bad"], r["checked"]
+
+
+SHAKE = """async () => {
+  const xs = [[], [], []];
+  for (let i = 0; i < 14; i++) {
+    hitFx = 1;                                   // as right after a hit
+    await new Promise((r) => requestAnimationFrame(r));
+    xs[0].push(camera.position.x); xs[1].push(camera.position.y); xs[2].push(camera.position.z);
+  }
+  const spread = Math.max(...xs.map((v) => Math.max(...v) - Math.min(...v)));
+  return { spread, vignette: parseFloat(document.getElementById('vignette').style.opacity || '0') };
+}"""
+
+
+def lb_rows(pg):
+    return pg.evaluate("[...document.querySelectorAll('#lb-body tr')].map((tr) => [...tr.children].map((td) => td.textContent))")
+
+
+def open_lb_from_menu(pg):
+    pg.click("#btn-leaderboard")
+    pg.wait_for_function("window.__lbReady === true")
+
+
+def save_name(pg, name, enter=False):
+    pg.fill("#name-input", name)
+    if enter:
+        pg.press("#name-input", "Enter")
+    else:
+        pg.click("#btn-save-score")
+    pg.wait_for_function("!document.getElementById('nameform-done').classList.contains('hidden')", timeout=10000)
+
+
+def lose_night(pg):
+    """Start Night 1 from the menu and lose it at once (Ngọn Lửa = 0) -> result screen with the name form."""
+    pg.click("#btn-night-1")
+    pg.wait_for_timeout(150)
+    pg.click("#btn-intro-go")
+    pg.wait_for_function("game.ui === 'play'")
+    calm(pg)
+    pyrun(pg, "g.player['flames'] = 0")
+    pg.wait_for_function("game.ui === 'result'", timeout=10000)
+
+
+def trigger_cues(pg):
+    """Make the sim itself raise two cues: a lantern at fuel 20 (< 30) and the first Bóng Mực spawn (real _spawns path)."""
+    set_fuel(pg, 0, 20)
+    pyrun(pg, "g.shades.clear()\ng.random_shades = True\ng.sim_tick = 299\ng.player['flames'] = 3")
+    pg.wait_for_function("document.querySelector('#hud .edgearrow.shade') !== null && document.querySelectorAll('#captions .cap').length >= 2",
+                         timeout=8000)
+
+
+# ---------------------------------------------------------------------------------------- Ticket-04 checks
+def check_leaderboard(pg, R):
+    """Starts on the Dawn screen (after the win chain)."""
+    total = int(pg.inner_text("#dawn-total"))
+    R["dawn_name_form_in_dawn_card"] = visible(pg, "nameform") and pg.evaluate("document.getElementById('nameform').parentElement.id") == "dawn-form-slot"
+    shot(pg, "13b_dawn_name_form.png")
+    bad_ok = True
+    for bad, frag in (("ab", "ngắn"), ("", "ngắn"), ("x" * 13, "dài"), ("ab cd", "chỉ gồm"), ("tên!!", "chỉ gồm")):
+        pg.fill("#name-input", bad)
+        pg.click("#btn-save-score")
+        msg = pg.inner_text("#name-msg")
+        bad_ok = bad_ok and msg.startswith("⚠") and frag in msg and not visible(pg, "nameform-done")
+    R["name_validation_messages"] = bad_ok
+    R["name_not_saved_when_invalid"] = leaderboard.load(LB_FILE) == []
+    shot(pg, "13c_name_error.png")
+    # Vietnamese name typed in decomposed form (NFD, 13 code points) = 11 characters after NFC: accepted, stored as NFC
+    nfc = unicodedata.normalize("NFC", "Nguyễn_Long")
+    nfd = unicodedata.normalize("NFD", nfc)
+    R["vietnamese_nfd_name_is_longer_raw"] = len(nfd) > 12 and len(nfc) == 11
+    save_name(pg, nfd)
+    saved = pg.inner_text("#name-saved")
+    entries = leaderboard.load(LB_FILE)
+    when = entries[0]["achieved_at"] if entries else ""
+    R["lb_dawn_saved_via_api"] = (pg.evaluate("window.__lastSave.via") == "server" and len(entries) == 1
+                                  and entries[0]["name"] == nfc and entries[0]["score"] == total and total > 0
+                                  and entries[0]["nights_won"] == 3 and "T" in when and (when.endswith("Z") or when[-6] in "+-"))
+    R["lb_saved_message_has_rank"] = "hạng 1" in saved and nfc in saved
+    shot(pg, "13d_name_saved.png")
+    pg.click("#btn-view-lb")
+    pg.wait_for_function("window.__lbReady === true")
+    rows = lb_rows(pg)
+    R["lb_screen_from_dawn"] = (visible(pg, "leaderboard") and not visible(pg, "dawn") and len(rows) == 1
+                                and rows[0][:4] == ["1", nfc, str(total), "3"] and len(rows[0][4]) > 5)
+    pg.click("#btn-lb-back")
+    R["lb_back_returns_to_dawn"] = visible(pg, "dawn") and not visible(pg, "leaderboard") and pg.evaluate("game.ui") == "dawn"
+    pg.click("#btn-dawn-menu")
+    # two losses from the main menu: score 0 each -> ranked after the Dawn entry, ties in the order achieved
+    pg.wait_for_function("game.ui === 'menu'")
+    lose_night(pg)
+    R["loss_name_form_in_result_card"] = visible(pg, "nameform") and pg.evaluate("document.getElementById('nameform').parentElement.id") == "res-form-slot"
+    shot(pg, "07c_loss_name_form.png")
+    save_name(pg, "An_Binh")
+    r1 = "hạng 2" in pg.inner_text("#name-saved")
+    pg.click("#btn-menu-result")
+    lose_night(pg)
+    pg.fill("#name-input", "Bao_Chau")
+    pg.press("#name-input", "Enter")                         # Enter in the box saves (it must not "continue" the result screen)
+    pg.wait_for_function("!document.getElementById('nameform-done').classList.contains('hidden')", timeout=10000)
+    R["enter_in_name_box_saves_not_retry"] = pg.evaluate("game.ui") == "result" and visible(pg, "result")
+    r2 = "hạng 3" in pg.inner_text("#name-saved")
+    R["lb_ranks_reported"] = r1 and r2
+    pg.click("#btn-menu-result")
+    open_lb_from_menu(pg)
+    rows = lb_rows(pg)
+    disk = [e["name"] for e in leaderboard.load(LB_FILE)]
+    R["lb_order_score_desc_then_earlier_first"] = [r[1] for r in rows] == [nfc, "An_Binh", "Bao_Chau"] and disk == [nfc, "An_Binh", "Bao_Chau"]
+    R["lb_columns_rank_name_score_nights_date"] = (all(len(r) == 5 for r in rows) and [r[0] for r in rows] == ["1", "2", "3"]
+                                                  and [r[2] for r in rows][1:] == ["0", "0"] and [r[3] for r in rows][1:] == ["0", "0"])
+    R["lb_source_is_server"] = pg.evaluate("window.__lbSource") == "server"
+    shot(pg, "14_leaderboard.png")
+    pg.click("#btn-lb-back")
+    R["lb_back_returns_to_menu"] = visible(pg, "menu") and not visible(pg, "leaderboard")
+    R["lb_file_persisted"] = len(leaderboard.load(LB_FILE)) == 3 and os.path.exists(LB_FILE)
+    open_lb_from_menu(pg)
+    pg.keyboard.press("Escape")                               # Escape also closes the screen
+    R["lb_escape_closes"] = visible(pg, "menu") and not visible(pg, "leaderboard")
+
+
+def check_keys(pg, R):
+    """Starts on the main menu. Rebinding through the Settings screen, as a player would."""
+    pg.click("#btn-settings-menu")
+
+    def key(a):
+        return pg.inner_text("#key-" + a)
+    R["keys_default_labels"] = [key(a) for a in ("up", "down", "left", "right", "jump", "dash", "interact", "pulse", "pause")] == [
+        "W", "S", "A", "D", "Space", "Shift", "E", "F", "P"]
+    pg.click("#key-up")
+    R["key_listening_prompt"] = "Nhấn phím" in pg.inner_text("#key-msg") and key("up") == "Nhấn phím…"
+    pg.keyboard.press("KeyI")
+    R["remap_up_to_I"] = pg.evaluate("game.settings.keys.up") == "KeyI" and key("up") == "I"
+    pg.click("#key-left")
+    pg.keyboard.press("KeyI")                                  # I is taken by "up"
+    msg = pg.inner_text("#key-msg")
+    R["remap_duplicate_warns_and_keeps_old_key"] = ("Trùng phím" in msg and "Đi lên" in msg and msg.startswith("⚠")
+                                                    and pg.evaluate("game.settings.keys.left") == "KeyA" and key("left") == "A")
+    shot(pg, "15_keys_duplicate_warning.png")
+    pg.click("#key-left")
+    pg.keyboard.press("Enter")                                 # reserved
+    R["remap_reserved_key_warns"] = "dành riêng" in pg.inner_text("#key-msg") and pg.evaluate("game.settings.keys.left") == "KeyA"
+    pg.click("#key-left")
+    pg.keyboard.press("Escape")                                # cancels, and does not close the Settings screen
+    R["remap_escape_cancels"] = ("hủy" in pg.inner_text("#key-msg") and visible(pg, "settings") and key("left") == "A"
+                                 and pg.evaluate("game.settings.keys.left") == "KeyA")
+    for a, code in (("jump", "KeyJ"), ("dash", "KeyK"), ("pause", "KeyO"), ("interact", "Space")):
+        pg.click("#key-" + a)
+        pg.keyboard.press(code)
+    R["remap_space_binds_cleanly"] = key("interact") == "Space" and pg.evaluate("game.settings.keys.interact") == "Space"
+    R["remap_all_set"] = pg.evaluate("game.settings.keys") == {"up": "KeyI", "down": "KeyS", "left": "KeyA", "right": "KeyD", "jump": "KeyJ",
+                                                               "dash": "KeyK", "pulse": "KeyF", "pause": "KeyO", "interact": "Space"}
+    shot(pg, "15b_keys_remapped.png")
+    pg.click("#btn-settings-done")
+    pg.reload()
+    wait_ready(pg)
+    keys_now = pg.evaluate("game.settings.keys")
+    R["remap_persists_after_reload"] = keys_now["up"] == "KeyI" and keys_now["pause"] == "KeyO" and keys_now["interact"] == "Space"
+    R["remap_menu_help_shows_new_keys"] = "I" in pg.inner_text("#controls-help").split("\n")[0] and "K" in pg.inner_text("#controls-help")
+    # the new keys drive the input frame; the old ones no longer do
+    enter_night(pg, 1)
+    R["remap_hud_key_labels"] = pg.inner_text("#cd-dash .key") == "K" and pg.inner_text("#cd-pulse .key") == "F"
+
+    def frame_while(code, expr):
+        pg.keyboard.down(code)
+        v = pg.evaluate(expr)
+        pg.keyboard.up(code)
+        return v
+    fwd = frame_while("KeyI", "buildFrame().move")
+    old = frame_while("KeyW", "buildFrame().move")
+    jump = frame_while("KeyJ", "buildFrame().jump")
+    dash = frame_while("KeyK", "buildFrame().dash")
+    old_dash = frame_while("ShiftLeft", "buildFrame().dash")
+    inter = frame_while("Space", "buildFrame().interact")
+    old_jump = frame_while("Space", "buildFrame().jump")
+    R["remap_keys_drive_input_frame"] = fwd == [0, 1] and old == [0, 0] and jump is True and dash is True and inter is True
+    R["remap_old_keys_dead"] = old_dash is False and old_jump is False
+    p0 = pg.evaluate("snap.player.pos")
+    pg.keyboard.down("KeyI")
+    pg.wait_for_timeout(700)
+    pg.keyboard.up("KeyI")
+    p1 = pg.evaluate("snap.player.pos")
+    R["remapped_key_moves_player"] = p0 != p1
+    # remapped pause key (Esc still works too)
+    tap(pg, "KeyO")
+    pg.wait_for_timeout(100)
+    paused = pg.evaluate("game.ui") == "paused"
+    tap(pg, "Escape")
+    pg.wait_for_timeout(100)
+    R["remapped_pause_key_pauses"] = paused and pg.evaluate("game.ui") == "play"
+    # reset to defaults (from the pause menu, saved)
+    tap(pg, "KeyO")
+    pg.click("#btn-settings-pause")
+    pg.click("#btn-keys-reset")
+    raw = pg.evaluate("JSON.parse(localStorage.getItem('dao-den-long.settings')).keys")
+    R["keys_reset_to_defaults_and_saved"] = (raw == {"up": "KeyW", "down": "KeyS", "left": "KeyA", "right": "KeyD", "jump": "Space",
+                                                     "dash": "ShiftLeft", "interact": "KeyE", "pulse": "KeyF", "pause": "KeyP"}
+                                             and key("up") == "W" and pg.inner_text("#cd-dash .key") == "Shift")
+    shot(pg, "15c_keys_reset.png")
+    pg.click("#btn-settings-done")
+    pg.click("#btn-resume")
+    pg.wait_for_function("game.ui === 'play'")
+
+
+def check_cues_and_motion(pg, R):
+    """In play (Night 1). Captions + edge arrow, last 10 s, reduced motion, large text, font sizes."""
+    calm(pg)
+    pg.evaluate("game.setCam(10, 22)")
+    # --- caption + edge arrow when Bóng Mực appears (the sim raises shade_spawned), and the fuel < 30 caption
+    trigger_cues(pg)
+    caps = pg.inner_text("#captions")
+    R["cue_shade_spawn_caption"] = "Bóng Mực xuất hiện" in caps and "⚠" in caps and "m!" in caps
+    R["cue_low_fuel_caption"] = "sắp hết dầu" in caps and "L1" in caps
+    pg.wait_for_timeout(200)
+    r = pg.evaluate("""() => { const t = document.querySelector('#hud .edgearrow.shade .tri').getBoundingClientRect();
+        return { x: t.x + t.width / 2, y: t.y + t.height / 2, label: document.querySelector('#hud .edgearrow.shade .lbl').textContent }; }""")
+    R["cue_shade_edge_arrow_on_screen_edge"] = (-1 <= r["x"] <= 1281 and -1 <= r["y"] <= 721 and r["label"] == "Bóng Mực"
+                                                and (r["x"] < 120 or r["x"] > 1160 or r["y"] < 100 or r["y"] > 620))
+    shot(pg, "16_cues_shade_spawn.png")
+    bad, n = font_check(pg, MIN_FONT_PX)
+    R["font_min_18px_default"] = not bad
+    R["font_check_elements"] = n
+    R["font_violations_default"] = bad
+    # --- last 10 s
+    pyrun(pg, "g.shades.clear()\ng.random_shades = False\ng.time_left_ticks = 630")
+    pg.wait_for_function("document.getElementById('captions').innerText.includes('10 giây cuối')", timeout=5000)
+    R["cue_last_10s_caption"] = pg.evaluate("document.getElementById('timer').classList.contains('last10')")
+    shot(pg, "16b_cue_last_10s.png")
+    # --- reduced motion + large text, through the Settings screen
+    pyrun(pg, "g.time_left_ticks = 20000")
+    pg.keyboard.press("Escape")
+    pg.click("#btn-settings-pause")
+    R["a11y_defaults_off"] = (not pg.evaluate("game.settings.reduced") and not pg.evaluate("game.settings.large")
+                              and pg.evaluate("game.settings.captions") is True)
+    before = pg.evaluate("[document.getElementById('btn-settings-done').getBoundingClientRect().height, getComputedStyle(document.body).fontSize]")
+    pg.click("#set-reduced")
+    pg.click("#set-large")
+    after = pg.evaluate("[document.getElementById('btn-settings-done').getBoundingClientRect().height, getComputedStyle(document.body).fontSize]")
+    R["large_text_scales_ui"] = before[1] == "18px" and after[1] == "22.5px" and after[0] > before[0]
+    shot(pg, "17_settings_large_text.png")
+    pg.click("#btn-settings-done")
+    pg.click("#btn-resume")
+    pg.wait_for_function("game.ui === 'play'")
+    trigger_cues(pg)
+    bad, _ = font_check(pg, MIN_FONT_PX * 1.25)
+    R["font_min_22_5px_large"] = not bad
+    R["font_violations_large"] = bad
+    shot(pg, "17b_hud_large_text.png")
+    sh = pg.evaluate(SHAKE)
+    R["reduced_motion_no_camera_shake_no_flash"] = sh["spread"] < 1e-6 and sh["vignette"] == 0
+    R["reduced_spread_vignette"] = [round(sh["spread"], 6), sh["vignette"]]
+    pg.reload()
+    wait_ready(pg)
+    R["reduced_and_large_persist_after_reload"] = pg.evaluate(
+        "game.settings.reduced === true && game.settings.large === true && document.body.classList.contains('reduced')"
+        " && document.body.classList.contains('large') && document.getElementById('set-reduced').checked"
+        " && document.getElementById('set-large').checked")
+    raw = pg.evaluate("JSON.parse(localStorage.getItem('dao-den-long.settings'))")
+    R["a11y_saved_in_localstorage"] = raw["reduced"] is True and raw["large"] is True and raw["captions"] is True and "keys" in raw
+    # ... and back to normal through the UI: the shake and the flash return, text is 18 px again
+    enter_night(pg, 1)
+    calm(pg)
+    pg.keyboard.press("Escape")
+    pg.click("#btn-settings-pause")
+    pg.click("#set-reduced")
+    pg.click("#set-large")
+    pg.click("#btn-settings-done")
+    pg.click("#btn-resume")
+    pg.wait_for_function("game.ui === 'play'")
+    pg.wait_for_timeout(200)
+    sh = pg.evaluate(SHAKE)
+    R["motion_returns_when_reduced_off"] = sh["spread"] > 0.05 and sh["vignette"] > 0.5
+    trigger_cues(pg)
+    bad, _ = font_check(pg, MIN_FONT_PX)
+    R["font_min_18px_after_large_off"] = not bad and pg.evaluate("getComputedStyle(document.body).fontSize") == "18px"
+    # --- captions can be switched off
+    pg.keyboard.press("Escape")
+    pg.click("#btn-settings-pause")
+    pg.click("#set-captions")
+    pg.click("#btn-settings-done")
+    pg.click("#btn-resume")
+    pg.wait_for_function("game.ui === 'play'")
+    R["captions_off_clears_cues"] = (pg.evaluate("game.settings.captions") is False and pg.evaluate("document.querySelectorAll('#captions .cap').length") == 0
+                                     and pg.evaluate("document.querySelectorAll('#hud .edgearrow.shade').length") == 0)
+    set_fuel(pg, 0, 25)
+    pyrun(pg, "g.shades.clear()\ng.random_shades = True\ng.sim_tick = 299")
+    pg.wait_for_function("snap.shades.length > 0", timeout=5000)
+    pg.wait_for_timeout(300)
+    R["captions_off_no_new_cues"] = pg.evaluate("document.querySelectorAll('#captions .cap').length") == 0
+    pg.keyboard.press("Escape")
+    pg.click("#btn-settings-pause")
+    pg.click("#set-captions")
+    pg.click("#btn-settings-done")
+    pg.click("#btn-resume")
+    R["captions_back_on"] = pg.evaluate("game.settings.captions") is True
+
+
+def check_bench(ctx, R, errors):
+    """The benchmark page against the real server's /api/bench sink: a 3 s run."""
+    n0 = len(BENCH_RESULTS)
+    t_before = time.time() * 1000
+    pg = ctx.new_page()
+    watch(pg, errors)
+    pg.goto(f"http://127.0.0.1:{PORT}/web/index.html?bench=1&seed=42&duration=3")
+    pg.wait_for_function("window.__benchDone !== undefined || window.__loadError !== undefined", timeout=300000)
+    R["bench_no_load_error"] = pg.evaluate("window.__loadError === undefined")
+    done = pg.evaluate("window.__benchDone")
+    R["bench_posted_ok"] = bool(done and done.get("ok")) and len(BENCH_RESULTS) == n0 + 1
+    if not R["bench_posted_ok"] or not R["bench_no_load_error"]:
+        R["bench_error_detail"] = str(done) + " / " + str(pg.evaluate("window.__loadError"))
+        pg.close()
+        return
+    pl = BENCH_RESULTS[-1]
+    dts = pl.get("dts_ms") or []
+    R["bench_payload_fields"] = {"first_frame_epoch_ms", "dts_ms", "renderer", "warmup_s"} <= set(pl) and pl["warmup_s"] == 3
+    R["bench_dts_valid"] = len(dts) >= 2 and all(isinstance(d, (int, float)) and 0 < d < 30000 for d in dts)
+    total = sum(dts)
+    R["bench_measured_exactly_duration"] = bool(dts) and 3000 <= total < 3000 + max(dts) + 1
+    R["bench_first_frame_epoch_plausible"] = t_before <= pl["first_frame_epoch_ms"] <= time.time() * 1000
+    R["bench_renderer_string"] = isinstance(pl["renderer"], str) and " · " in pl["renderer"] and len(pl["renderer"]) > 8
+    stats = benchstats.compute(dts)
+    R["bench_stats_computable"] = stats["frames"] == len(dts) and stats["avg_fps"] > 0 and stats["p1_low_fps"] > 0
+    R["bench_stats"] = stats
+    R["bench_renderer"] = pl["renderer"]
+    R["bench_first_frame_ms_after_navigation"] = round(pl["first_frame_epoch_ms"] - t_before)
+    R["bench_canvas_1280x720"] = pg.evaluate(
+        "(() => { const c = renderer.domElement, r = c.getBoundingClientRect(); return c.width === 1280 && c.height === 720"
+        " && Math.round(r.width) === 1280 && Math.round(r.height) === 720 && renderer.getPixelRatio() === 1; })()")
+    R["bench_no_ui"] = pg.evaluate(
+        "[...document.querySelectorAll('.overlay, #hud, #fps')].every((e) => getComputedStyle(e).display === 'none')")
+    info = pg.evaluate("game.benchInfo()")
+    R["bench_200_shades_100_motes_instanced"] = info["shades"] == 200 and info["motes"] == 100
+    s = pg.evaluate("[snap.shades.length, snap.shades.every((s) => s.state === 'wander' || s.state === 'spawning'), snap.motes.length,"
+                    " snap.lanterns.filter((l) => l.lit).length, snap.night]")
+    R["bench_scene_from_sim"] = s[0] == 200 and s[1] is True and s[2] == 100 and s[3] == 3 and s[4] == 1
+    cam = pg.evaluate("""() => { const a = Math.atan2(camera.position.z, camera.position.x), want = 2 * Math.PI * benchT / 15;
+        return { r: Math.hypot(camera.position.x, camera.position.z), y: camera.position.y,
+                 dAng: Math.atan2(Math.sin(a - want), Math.cos(a - want)) }; }""")
+    R["bench_camera_circle_r30_y15"] = abs(cam["r"] - 30) < 1e-6 and abs(cam["y"] - 15) < 1e-9 and abs(cam["dAng"]) < 1e-6
+    R["bench_sim_stepped"] = pg.evaluate("snap.tick") > 0
+    R["bench_ignores_input"] = pg.evaluate(
+        "(() => { for (const k of ['KeyW', 'Space']) dispatchEvent(new KeyboardEvent('keydown', { code: k })); return Object.keys(keys).length === 0; })()")
+    shot(pg, "18_bench_scene.png")
+    pg.close()
+
+
+def check_static_fallback(ctx, R, errors):
+    """A server without /api (single-file / Artifact build): the leaderboard lives in localStorage and survives a reload."""
+    pg = ctx.new_page()
+    watch(pg, errors, no_api=True)
+    pg.goto(f"http://127.0.0.1:{PORT_STATIC}/web/")
+    wait_ready(pg)
+    lose_night(pg)
+    save_name(pg, "Local_One")
+    R["lb_fallback_local_storage_used"] = (pg.evaluate("window.__lastSave.via") == "local" and "trình duyệt" in pg.inner_text("#name-saved")
+                                           and "hạng 1" in pg.inner_text("#name-saved"))
+    pg.click("#btn-menu-result")
+    lose_night(pg)
+    save_name(pg, "Local_Two")
+    R["lb_fallback_ties_keep_time_order"] = "hạng 2" in pg.inner_text("#name-saved")
+    pg.click("#btn-menu-result")
+    pg.reload()
+    wait_ready(pg)
+    open_lb_from_menu(pg)
+    rows = lb_rows(pg)
+    R["lb_fallback_persists_after_reload"] = ([r[1] for r in rows] == ["Local_One", "Local_Two"] and pg.evaluate("window.__lbSource") == "local"
+                                              and "localStorage" in pg.inner_text("#lb-source"))
+    shot(pg, "14b_leaderboard_local.png")
+    R["lb_fallback_did_not_touch_server_file"] = len(leaderboard.load(LB_FILE)) == 3
+    pg.close()
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
-    httpd = serve()
+    httpd = serve_api()
+    httpd_static = serve_static()
     R = {}
     errors = []
     with sync_playwright() as pw:
@@ -198,12 +636,20 @@ def main():
                                      "--autoplay-policy=no-user-gesture-required"])
         ctx = b.new_context(viewport={"width": 1280, "height": 720})
         pg = ctx.new_page()
-        pg.on("pageerror", lambda e: errors.append(str(e)))
-        pg.on("console", lambda m: m.type == "error" and errors.append(m.text))
+        watch(pg, errors)
         pg.goto(f"http://127.0.0.1:{PORT}/web/")
-        pg.wait_for_function("window.__ready === true", timeout=180000)
+        wait_ready(pg)
         pg.wait_for_timeout(300)
         R["menu_shown"] = visible(pg, "menu")
+        # vendor-first loading: when web/vendor/ exists (tools/fetch_vendor.py) the page must use it, not the CDN
+        res = pg.evaluate("performance.getEntriesByType('resource').map((e) => e.name)")
+        has_three = os.path.exists(os.path.join(ROOT, "web", "vendor", "three.min.js"))
+        has_pyo = os.path.exists(os.path.join(ROOT, "web", "vendor", "pyodide", "pyodide.js"))
+        R["vendor_three_used"] = any("vendor/three.min.js" in u for u in res)
+        R["vendor_pyodide_used"] = any("vendor/pyodide/pyodide.js" in u for u in res)
+        R["vendor_first_when_present"] = ((not has_three or R["vendor_three_used"]) and (not has_pyo or R["vendor_pyodide_used"])
+                                          and not any("cdnjs.cloudflare.com" in u and has_three for u in res)
+                                          and not any("cdn.jsdelivr.net" in u and has_pyo for u in res))
         shot(pg, "01_menu.png")
 
         # ---- parity: same seed + frames in browser (Pyodide) vs CPython, nights 1 and 3
@@ -285,8 +731,11 @@ def main():
         # ---- colour-blind palette in play: shade rim #00B3FF, warning colour #FFFFFF + warning icon, drain tendril
         enter_night(pg, 1)
         drain_scene(pg)
-        R["cb_shade_rim_is_00B3FF"] = pg.evaluate("shadeObjs.S1.userData.rimMat.color.getHex()") == 0x00B3FF
-        R["cb_shade_eyes_are_00B3FF"] = pg.evaluate("shadeObjs.S1.userData.eyeMat.color.getHex()") == 0x00B3FF
+        R["cb_shade_rim_is_00B3FF"] = pg.evaluate("shadeObjs.S1.userData.rimHex") == 0x00B3FF
+        R["cb_shade_eyes_are_00B3FF"] = pg.evaluate("shadeObjs.S1.userData.eyeHex") == 0x00B3FF
+        # ... and the GPU instance buffers really carry it (rim instance 0 = #00B3FF, eyes too)
+        col = pg.evaluate("[Array.from(shadeInst.rim.userData.colArr.slice(0, 3)), Array.from(shadeInst.eyes.userData.colArr.slice(0, 3))]")
+        R["cb_shade_instance_colours_00B3FF"] = all(abs(c[0] - 0) < 0.01 and abs(c[1] - 0xB3 / 255) < 0.01 and abs(c[2] - 1) < 0.01 for c in col)
         R["cb_warning_colour_is_white"] = pg.evaluate(
             "getComputedStyle(document.body).getPropertyValue('--danger').trim().toLowerCase()") == "#ffffff"
         R["cb_warning_icon_shown"] = ("⚠" in pg.evaluate("getComputedStyle(document.getElementById('need'), '::before').content")
@@ -304,14 +753,14 @@ def main():
         pg.wait_for_timeout(300)
         R["colorblind_toggle_off_restores_palette"] = (
             pg.evaluate("game.settings.cb === false && !document.body.classList.contains('cb')")
-            and pg.evaluate("shadeObjs.S1.userData.rimMat.color.getHex()") == 0x7A3CFF
+            and pg.evaluate("shadeObjs.S1.userData.rimHex") == 0x7A3CFF
             and pg.evaluate("getComputedStyle(document.body).getPropertyValue('--danger').trim().toLowerCase()") == "#ff5a5f")
 
         # ---- draining shade (default palette): tendril to the lantern + fuel falls faster than 1/s
         f0 = pg.evaluate("snap.lanterns[0].fuel")
         pg.wait_for_timeout(700)
         f1 = pg.evaluate("snap.lanterns[0].fuel")
-        R["shade_drain_tendril_visible"] = pg.evaluate("shadeObjs.S1.userData.tendril.visible") and pg.evaluate("snap.shades[0].state") == "drain"
+        R["shade_drain_tendril_visible"] = pg.evaluate("!!(shadeObjs.S1.userData.tendril && shadeObjs.S1.userData.tendril.visible)") and pg.evaluate("snap.shades[0].state") == "drain"
         R["shade_drain_speeds_up_fuel_loss"] = (f0 - f1) > 2.0
         shot(pg, "06d_shade_drain.png")
 
@@ -381,7 +830,7 @@ def main():
 
         # ---- the draining shade again, now in the default palette
         drain_scene(pg)
-        R["default_shade_rim_is_7A3CFF"] = pg.evaluate("shadeObjs.S1.userData.rimMat.color.getHex()") == 0x7A3CFF
+        R["default_shade_rim_is_7A3CFF"] = pg.evaluate("shadeObjs.S1.userData.rimHex") == 0x7A3CFF
 
         # ---- no early win: every lantern lit and fed does not end the Night any more
         enter_night(pg, 1)
@@ -458,6 +907,7 @@ def main():
         pg.click("#btn-resume")
         pg.wait_for_timeout(300)
         R["wind_warning_shown"] = pg.evaluate("extra.wind_warning !== null") and visible(pg, "wind")
+        R["cue_wind_soon_caption"] = "Gió sắp thổi" in pg.inner_text("#captions") and "⚠" in pg.inner_text("#captions")
         pg.evaluate("game.setCam(12, 25)")
         pg.wait_for_timeout(300)
         shot(pg, "11_night3_wind_warning.png")
@@ -488,13 +938,26 @@ def main():
         R["dawn_total_is_sum_of_won_nights"] = total == sum(won) and total > 0
         R["won_scores"] = won
         shot(pg, "13_dawn.png")
+
+        # ---- Ticket-04: leaderboard (Dawn + losses), key remapping, cues / reduced motion / large text / fonts
+        check_leaderboard(pg, R)
+        check_keys(pg, R)
+        enter_night(pg, 1)
+        check_cues_and_motion(pg, R)
+        # ---- Ticket-04: the benchmark page (new page) and the no-API leaderboard fallback (static server)
+        pg.goto("about:blank")                    # stop the main page's render loop: the benchmark gets the GPU to itself
+        check_bench(ctx, R, errors)
+        check_static_fallback(ctx, R, errors)
         b.close()
     httpd.shutdown()
+    httpd_static.shutdown()
     R["fps_note"] = ("headless Chromium uses SwiftShader software GL; real GPUs render much faster, "
                      "so these FPS numbers are a lower bound")
     R["js_errors"] = errors
     info = {"js_errors", "fps_note", "won_scores", "parity_night1_ticks", "parity_night3_ticks",
-            "fps_night1_avg_5s", "fps_night3_avg_5s", "low_fuel_blink_flips_in_3s"}
+            "fps_night1_avg_5s", "fps_night3_avg_5s", "low_fuel_blink_flips_in_3s", "font_check_elements",
+            "font_violations_default", "font_violations_large", "reduced_spread_vignette", "bench_stats", "bench_renderer",
+            "bench_first_frame_ms_after_navigation", "bench_error_detail"}
     ok = all(v is True for k, v in R.items() if k not in info) and not errors
     R["ok"] = ok
     with open(os.path.join(OUT, "web_check.json"), "w", encoding="utf-8") as f:
