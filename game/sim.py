@@ -121,6 +121,11 @@ WIND_EVERY_TICKS = 1800
 WIND_TICKS = 300
 WIND_WARN_TICKS = 120
 WIND_SPEED = 2.0
+# Ticket-04 benchmark scene (bench=True): 200 wandering shades, 100 motes, lanterns L1-L3 lit.
+BENCH_SHADES = 200
+BENCH_MOTES = 100
+BENCH_SPREAD_R = 38.0       # spawn radius r = 38 * sqrt(u): uniform over the island (radius 40)
+BENCH_LIT = 3
 
 BUTTONS = ("jump", "interact", "pulse", "dash", "pause")
 SHADE_STATES = ("spawning", "wander", "chase", "recoil", "stunned", "drain")
@@ -231,10 +236,15 @@ def parse_inputs(data):
 
 
 class Game:
-    def __init__(self, seed=0, scenario=None, night=1):
+    def __init__(self, seed=0, scenario=None, night=1, bench=False):
+        """bench=True (Ticket-04): fixed benchmark scene on Night 1; the scenario argument is ignored.
+        Everything that spawns, hurts, ends or ticks the clock is off, shades only wander."""
+        if bench:
+            night, scenario = 1, None
         if night not in maps.NIGHTS:
             raise ValueError(f"night must be one of {maps.NIGHTS}")
         T = TUNING
+        self.bench = bool(bench)
         self.night = night
         self.rng = random.Random(seed)
         self.tick = 0
@@ -270,10 +280,10 @@ class Game:
         self.next_drifter = 1
         self.reserved_shade_ids = []
         self.reserved_drifter_ids = []
-        self.random_motes = True
-        self.random_shades = True
-        self.random_drifters = maps.has_drifters(night)
-        self.wind_enabled = maps.has_wind(night)
+        self.random_motes = not self.bench
+        self.random_shades = not self.bench
+        self.random_drifters = maps.has_drifters(night) and not self.bench
+        self.wind_enabled = maps.has_wind(night) and not self.bench
         self.wind_ticks = 0
         self.wind_dir = 0.0
         self.wind_pending = None
@@ -281,6 +291,8 @@ class Game:
         self.held.update({b: False for b in BUTTONS})
         self.prev_buttons = {b: False for b in BUTTONS}
         self._setup({} if scenario is None else scenario)
+        if self.bench:
+            self._setup_bench()
 
     # ------------------------------------------------------------- geometry
     def _ground(self, x, z):
@@ -454,6 +466,29 @@ class Game:
                 raise ScenarioError("time_left_s must be a number >= 0")
             self.time_left_ticks = _ticks(sc["time_left_s"])
 
+    def _bench_point(self):
+        """A uniformly random point on the Night 1 island (r = 38 * sqrt(u), uniform angle)."""
+        r = BENCH_SPREAD_R * math.sqrt(self.rng.random())
+        a = self.rng.uniform(0.0, 2.0 * math.pi)
+        return r * math.cos(a), r * math.sin(a)
+
+    def _setup_bench(self):
+        """Ticket-04 benchmark scene: L1-L3 lit with fuel 100, 200 wandering shades S1..S200 and
+        100 random motes M1..M100, all scattered with random.Random(seed) (shades first)."""
+        for l in self.lanterns[:BENCH_LIT]:
+            l["lit"] = True
+            l["units"] = self._fuel_max_u()
+            l["ever_lit"] = True
+            l["deposited"] = TUNING["lantern_cost"]
+        for _ in range(BENCH_SHADES):
+            x, z = self._bench_point()
+            pos = [x, self._floor_y(x, z) + SHADE_Y_OFFSET, z]
+            sid = self._new_id("S", "next_shade", self.shades, self.reserved_shade_ids)
+            self.shades.append(self._make_shade(sid, pos, "wander", 0))
+        for _ in range(BENCH_MOTES):      # bench may exceed MOTE_CAP
+            x, z = self._bench_point()
+            self._add_mote([x, self._floor_y(x, z), z], "random")
+
     @staticmethod
     def _reserve_ids(items, what):
         given = []
@@ -512,13 +547,15 @@ class Game:
         return l["lit"] and l["units"] >= self._low_fuel_u()   # exactly 30 still counts
 
     def _nearest_lantern(self, pos, pred):
+        """Nearest lantern (XZ) satisfying pred; equal distance -> lower id. (Hot in the 200-shade bench.)"""
         best = None
+        bd = 0.0
         for l in self.lanterns:
             if pred(l):
-                key = (dist_xz(pos, l["pos"]), _id_key(l["id"]))
-                if best is None or key < best[0]:
-                    best = (key, l)
-        return None if best is None else best[1]
+                d = dist_xz(pos, l["pos"])
+                if best is None or d < bd or (d == bd and _id_key(l["id"]) < _id_key(best["id"])):
+                    best, bd = l, d
+        return best
 
     def _weak_lantern(self, pos):
         return self._nearest_lantern(pos, self._is_weak)
@@ -604,7 +641,8 @@ class Game:
 
     # 2 ---------------------------------------------------------- counters
     def _tick_counters(self):
-        self.time_left_ticks -= 1
+        if not self.bench:
+            self.time_left_ticks -= 1     # bench: the clock stands still
         p = self.player
         for k in ("invuln", "dash_cd", "pulse_cd", "charm", "dash", "respawn"):
             if p[k] > 0:
@@ -647,6 +685,8 @@ class Game:
         T = TUNING
         decay = self._num(T["fuel_decay_per_s"])
         drain = self._num(T["drain_per_s"])
+        if self.bench:      # bench: lanterns neither decay nor get drained
+            return
         drainers = {}
         for s in sorted(self.shades, key=lambda s: _id_key(s["id"])):
             if s["state"] == "drain" and s["tl"] is not None:
@@ -808,7 +848,7 @@ class Game:
 
     def _pickups(self):
         p = self.player
-        if p["respawning"]:
+        if p["respawning"] or self.bench:     # bench: nothing can be picked up
             return
         cap = self.capacity()
         kept = []
@@ -901,8 +941,9 @@ class Game:
 
     def _keep_out_of_light(self, s):
         R = TUNING["safe_radius"]
+        low = self._low_fuel_u()
         for l in self.lanterns:
-            if not self._has_safe_zone(l):
+            if not (l["lit"] and l["units"] >= low):     # == _has_safe_zone(l)
                 continue
             dx, dz = s["pos"][0] - l["pos"][0], s["pos"][2] - l["pos"][2]
             dd = math.hypot(dx, dz)
@@ -1070,7 +1111,7 @@ class Game:
                     st = s["state"] = "wander"      # lantern out / refuelled to >= 30 / too far
                 if st != "drain":
                     s["tl"], s["target"] = None, None
-            if st == "wander" and d <= SHADE_DETECT + EPS:
+            if st == "wander" and d <= SHADE_DETECT + EPS and not self.bench:   # bench: no player to chase
                 st = s["state"] = "chase"
             elif st == "chase" and d > SHADE_LOSE + EPS:
                 st = s["state"] = "wander"
@@ -1115,7 +1156,7 @@ class Game:
         T = TUNING
         p = self.player
         pos = p["pos"]
-        if p["respawning"]:
+        if p["respawning"] or self.bench:     # bench: no damage, no steals
             return
         for d in sorted(self.drifters, key=lambda d: _id_key(d["id"])):
             if (d["state"] in ("idle", "chase") and p["carried"] > 0
@@ -1153,6 +1194,8 @@ class Game:
 
     # 10 --------------------------------------------------------- spawns
     def _spawns(self):
+        if self.bench:      # bench: nothing spawns (shades, motes, drifters, charms, wind)
+            return
         st = self.sim_tick
         ppos = self.player["pos"]
         if self.random_motes and st % MOTE_RESPAWN_TICKS == 0 and len(self.motes) < MOTE_CAP:
@@ -1192,6 +1235,8 @@ class Game:
 
     # 11 --------------------------------------------------------- win / lose
     def _evaluate(self):
+        if self.bench:      # bench: the night never ends
+            return
         if self.player["flames"] <= 0:
             self._end("lost", "no_flames")
         elif self.time_left_ticks <= 0:     # dawn: no early win any more
@@ -1253,6 +1298,14 @@ _web_game = None
 def web_new(seed, night=1):
     global _web_game
     _web_game = Game(int(seed), None, int(night))
+    return _web_json({"events": _web_game.initial_events(), "snap": _web_game.snapshot(),
+                      "extra": _web_game.extra()})
+
+
+def web_bench_new(seed):
+    """Ticket-04 benchmark scene (Night 1, 200 shades, 100 motes); same JSON shape as web_new."""
+    global _web_game
+    _web_game = Game(int(seed), None, 1, bench=True)
     return _web_json({"events": _web_game.initial_events(), "snap": _web_game.snapshot(),
                       "extra": _web_game.extra()})
 

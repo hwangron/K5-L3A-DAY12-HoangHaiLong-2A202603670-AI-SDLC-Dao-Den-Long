@@ -6,3 +6,4 @@ __pycache__/
 !docs/proof/**/*.jsonl
 dist/
 .claude/settings.local.json
+web/vendor/
