@@ -1,0 +1,16 @@
+name: verify
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests + headless scenarios + determinism
+        run: python3 tools/check.py
+      - name: Contract smoke run
+        run: |
+          python3 headless.py --seed 1 --night 1 --ticks 600 --out out.jsonl
+          tail -1 out.jsonl
